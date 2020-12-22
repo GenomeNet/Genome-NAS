@@ -14,7 +14,7 @@ import torch
 import data_preprocessing as dp
 
 
-text, n_vocab, int_to_vocab, vocab_to_int = dp.open_data('/home/scheppacha/data/trainset.txt')#'/home/amadeu/Desktop/genom_Models/genom_venv/data/trainset.txt')#'/home/scheppacha/data/trainset.txt')
+text, n_vocab, int_to_vocab, vocab_to_int = dp.open_data('/home/amadeu/Desktop/genom_Models/genom_venv/data/trainset.txt')#'/home/scheppacha/data/trainset.txt')
 
 seq_size=5
 lstm_size = 5
@@ -22,9 +22,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 batch_size = 32
 
     
-class RNNModule(nn.Module):
+class CNN_LSTM_Module(nn.Module):
     def __init__(self, n_vocab, seq_size, lstm_size):
-        super(RNNModule, self).__init__()
+        super(CNN_LSTM_Module, self).__init__()
         self.seq_size = seq_size
         self.lstm_size = lstm_size
         self.conv1d = nn.Conv1d(1,4,kernel_size=2)# habe 1 input und output channels/feature maps mit 2 neuronen (weil input sind 3 neuronen, wo wir mit 2er kernels darüber laufen)
@@ -68,7 +68,7 @@ class RNNModule(nn.Module):
                 torch.zeros(1, batch_size, self.lstm_size))
     
 
-model = RNNModule(n_vocab, seq_size, lstm_size)
+model = CNN_LSTM_Module(n_vocab, seq_size, lstm_size)
 model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
