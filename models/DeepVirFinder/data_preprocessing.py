@@ -19,7 +19,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 
 seq_size = 100
-batch_size=32
+batch_size= 32
 #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
@@ -110,7 +110,7 @@ class get_data(Dataset):
     
     
 
-text, n_vocab, int_to_vocab, vocab_to_int = open_data('/home/scheppacha/data/trainset.txt')#home/amadeu/Desktop/genom_Models/genom_venv/data/trainset.txt')#
+text, n_vocab, int_to_vocab, vocab_to_int = open_data('/home/amadeu/Desktop/genom_Models/genom_venv/data/trainset.txt')#'/home/scheppacha/data/trainset.txt')
 
 x,y = create_sequences(text,seq_size, representation = 'onehot' , model_type = 'CNN')
 
@@ -118,13 +118,19 @@ train_x, train_y = x[0:1500000,:], y[0:1500000]
 
 valid_x,valid_y = x[1500000:2000000,:], y[1500000:2000000]
 
-num_values_batch = batch_size*seq_size
+num_values_batch = batch_size*seq_size # "daten verbrauch" 
 # train 
-num_batches_train = np.prod(train_y.shape) // (seq_size * batch_size)# sind 9375; gilt nur für benchmark preds, also valid_loader nicht Train()
-end_train = num_values_batch*num_batches_train
+#num_batches_train = np.prod(train_y.shape) // (seq_size * batch_size)# anzahl minibatches
+#end_train = num_values_batch*num_batches_train # macht keinen sinn, weil es bis 6.000.000 geht
+num_batches_train = train_y.shape[0] // (num_values_batch)# anzahl minibatches
+end_train = num_values_batch*num_batches_train # macht keinen sinn, weil es bis 6.000.000 geht
+
+
 
 # valid
-num_batches_valid = np.prod(valid_y.shape) // (seq_size * batch_size)#sind 3124;gilt nur für benchmark preds, also valid_loader nicht Train()
+#num_batches_valid = np.prod(valid_y.shape) // (seq_size * batch_size)#sind 3124;gilt nur für benchmark preds, also valid_loader nicht Train()
+#end_valid = num_values_batch*num_batches_valid
+num_batches_valid = valid_y.shape[0] // (num_values_batch)# anzahl minibatches
 end_valid = num_values_batch*num_batches_valid
 
 train_x, train_y = train_x[0:end_train,:], train_y[0:end_train]

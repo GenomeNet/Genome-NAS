@@ -34,12 +34,13 @@ def Train():
     model.train() # dieses NN wurde oben als model definiert
     
     for idx, (inputs, labels) in enumerate(train_loader):
-        #print('Inputs')
+        #print('inputs')
+        #print(inputs)
+        #print(inputs.shape) # 32,100,4
+        inputs = inputs.transpose(1, 2) # now 32,4,100
+        #print('inputs_transposed')
         #print(inputs)
         #print(inputs.shape)
-
-        inputs = inputs.transpose(1, 2)
-
         inputs = inputs.to(device)
         labels = labels.to(device)
         optimizer.zero_grad()
@@ -55,7 +56,8 @@ def Train():
         print('labels')
         print(labels)
         print(labels.shape)
-        loss = criterion(preds,labels.long())
+        loss = criterion(preds,labels.long())# label is of shape [batchsize], which means, we have a true integer class for each batch;
+        # preds is of shape [batchsize=32,num_classes=4], so we have probability for each batch, belonging to a certain class
         #loss.requires_grad = True
 
         loss.backward()
@@ -63,12 +65,10 @@ def Train():
         running_loss += loss
     
     train_loss = running_loss/len(train_loader)
-    train_losses.append(train_loss.detach().numpy())
+    train_losses.append(train_loss.detach().cpu().numpy())
 
     print(f'train_loss {train_loss}')
 
-        
-    
 def Valid():
    
     running_loss = .0
@@ -81,33 +81,23 @@ def Valid():
     with torch.no_grad():
         for idx, (inputs, labels) in enumerate(valid_loader):
             inputs = inputs.transpose(1, 2)
-            
             inputs = inputs.to(device) 
-            labels = labels.to(device) 
-            
+            labels = labels.to(device)             
             optimizer.zero_grad()
+            
             logits = model(inputs.float())
+            labels = torch.max(labels, 1)[1]
+            loss = criterion(logits, labels.long())
+            running_loss += loss
 
-            labels, logits = torch.max(labels, 1)[1], torch.max(logits, 1)[1]
+            logits = torch.max(logits, 1)[1]
             labels, logits = labels.cpu().detach().numpy(), logits.cpu().detach().numpy()
-            #print('logits')
-            #print(logits)
-            #print(logits.shape)
-            #print('labels')
-            #print(labels)
-            #print(labels.shape)
+          
             y_true = np.append(y_true, labels)
             y_pred = np.append(y_pred, logits)
             
-            loss = criterion(logits, labels.long())
-            running_loss += loss
-        
-        #minibatch = y_pred[:,0]
-        #minibatch_column = minibatch.reshape(1000,1)
-        #y_true = np.delete(y_true,0,0)
-        #y_true = np.append(y_true, minibatch_column, axis=1)
+            
         y_true, y_pred = np.delete(y_true, (0), axis = 0), np.delete(y_pred, (0), axis = 0)
-        #y_true, y_pred = y_true.astype(np.float), y_pred.astype(np.float)
         y_true, y_pred = y_true.astype(np.int), y_pred.astype(np.int)
 
         valid_loss = running_loss/len(valid_loader)

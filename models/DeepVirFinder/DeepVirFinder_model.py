@@ -35,8 +35,7 @@ num_classes = 4
 class DeepVirFinder(nn.Module):
     def __init__(self):
         super(DeepVirFinder,self).__init__()
-        self.conv1d = nn.Conv1d(4,num_motifs,kernel_size=10)# 4 input channels, für jeden buchstaben, also ein channel und lassen 5 kernels/motifs darüber laufen
-        # deswegen haben wir nach dem flatten/x.view(-1) 6*2 neuronen 
+        self.conv1d = nn.Conv1d(4,num_motifs,kernel_size=10)
         self.relu = nn.ReLU(inplace=True)
         #self.maxpool = nn.MaxPool1d(kernel_size = 91)
         self.globalmaxpool = nn.AdaptiveMaxPool1d(1)
@@ -50,7 +49,7 @@ class DeepVirFinder(nn.Module):
         #print('x')
         #print(x)
         #print(x.shape)
-        x = self.conv1d(x)
+        x = self.conv1d(x)# results in 91 neurons and 6 channels
         #print('x1')
         #print(x)
         #print(x.shape)
@@ -58,14 +57,11 @@ class DeepVirFinder(nn.Module):
         #print('relu')
         #print(x)
         #print(x.shape)
-        x = self.globalmaxpool(x)
+        x = self.globalmaxpool(x) # results in 1 neuron and 6 channels
+        print('globalmaxpool')
+        print(x)
+        print(x.shape)
         x = torch.reshape(x, (batch_size, num_motifs))
-        # here no flatting of channels
-
-        #x = x.view(-1,6*2)# in order to flatten, the 6 depth channel tensor and 2 neurons; (if we have 2 tensors (because 2 batches) with each having 6 channels, we receive a vector with 12 elements)
-        #print('xpool')
-        #print(x)
-        #print(x.shape) # [2,5,1] also Mx1 wie im Paper, also für jeden kernel/motif, einen wert
         x = self.dropout(x)
         x = self.fc1(x)
         #print('dense_1')
@@ -75,13 +71,10 @@ class DeepVirFinder(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         x = self.sigmoid(x)
-        #x = self.fc2(x)
         #print('x5')
         #print(x)
         #print(x.shape)
         return x
-
-
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = DeepVirFinder().to(device)
@@ -93,8 +86,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 ##
 #from modelsummary import summary
 #model = DeepVirFinder()
-#print(summary(model, torch.zeros((32,4,100)), show_input=False))
-
+#print(summary(model, torch.zeros((32,4,100)), show_input=False)) # as CNN expects shape of [batchsize, input_channel, signal_length]
 
 
 
