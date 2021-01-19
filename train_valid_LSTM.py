@@ -70,9 +70,9 @@ def Train(model, device, optimizer, criterion, train_loader, valid_loader, batch
 
         optimizer.step()
         
-        _ = torch.nn.utils.clip_grad_norm_(model.parameters(), gradients_norm) # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+        #_ = torch.nn.utils.clip_grad_norm_(model.parameters(), gradients_norm) # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
 
-        optimizer.step()
+        #optimizer.step()
             
         running_loss += loss
      
@@ -115,9 +115,6 @@ def Valid(model, device, optimizer, criterion, train_loader, valid_loader, batch
             
             logits, (state_h, state_c) = model(inputs.float(), (state_h, state_c))
             labels = torch.max(labels, 1)[1]
-
-            #logits = torch.reshape(logits, (32,4))
-            #_, predicted = torch.max(logits, 1)    
       
             loss = criterion(logits, labels.long())
             running_loss += loss
