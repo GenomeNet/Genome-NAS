@@ -66,7 +66,7 @@ def Train(model, device, optimizer, criterion, train_loader, valid_loader, batch
 
         loss_value = loss.item()
 
-        loss.backward()#retain_graph=True) -> we will need this, for training two branches in parallel
+        loss.backward()
 
         optimizer.step()
         

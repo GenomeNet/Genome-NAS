@@ -30,26 +30,20 @@ def Train(model, device, optimizer, criterion, train_loader, valid_loader, batch
     
     running_loss = .0
     
-    model.train() # dieses NN wurde oben als model definiert
+    model.train() 
     
     y_true_train = np.empty((0,1), int)
     y_pred_train = np.empty((0,1), int)
     
     for idx, (inputs, labels) in enumerate(train_loader):
-        #print('inputs')
-        #print(inputs)
-        #print(inputs.shape) # 2,10,4
+      
         inputs = inputs.transpose(1, 2) # now 2,4,10
-        print('inputs_transposed')
-        print(inputs)
-        print(inputs.shape)
+     
         inputs = inputs.to(device)
         labels = labels.to(device)
         
         inputs = inputs.type(torch.cuda.LongTensor)
-        print('inputs_long')
-        print(inputs)
-        print(inputs.shape) 
+      
         
         optimizer.zero_grad()
 
@@ -57,12 +51,7 @@ def Train(model, device, optimizer, criterion, train_loader, valid_loader, batch
 
         labels = torch.max(labels, 1)[1]
 
-        #print('labels')
-        #print(labels)
-        #print(labels.shape)
-        loss = criterion(logits,labels.long())# label is of shape [batchsize], which means, we have a true integer class for each batch;
-        # preds is of shape [batchsize=32,num_classes=4], so we have probability for each batch, belonging to a certain class
-        #loss.requires_grad = True
+        loss = criterion(logits,labels.long())
         logits = torch.max(logits, 1)[1]
 
         labels, logits = labels.cpu().detach().numpy(), logits.cpu().detach().numpy()
