@@ -121,9 +121,9 @@ def Valid(model, device, optimizer, criterion, train_loader, valid_loader, batch
     np.save('valid_loss', valid_losses)
     np.save('preds', y_pred)
     np.save('trues',y_true)
-    #with open('preds.csv', 'w') as f: # logischerweise, macht er das für alle epochen, weshalb nur die letzte epoche abgespeichert wird (was uns nichts ausmacht, weil wir ja nur die prediction der letzten epoche haben wollen)
+    #with open('preds.csv', 'w') as f: 
     #    writer = csv.writer(f)
     #    writer.writerow(y_pred)
-    #with open('trues.csv', 'w') as f: # logischerweise, macht er das für alle epochen, weshalb nur die letzte epoche abgespeichert wird (was uns nichts ausmacht, weil wir ja nur die prediction der letzten epoche haben wollen)
+    #with open('trues.csv', 'w') as f: 
     #    writer = csv.writer(f)
     #    writer.writerow(y_true)
