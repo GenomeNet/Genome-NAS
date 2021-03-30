@@ -16,6 +16,8 @@ Implementing PDARTS for genomics
 
 # Run baseline Models
 
+## DeepVirFinder
 ```
 cd baseline_models
+python train_cnn_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
 ```
