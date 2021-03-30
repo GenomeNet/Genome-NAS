@@ -21,3 +21,22 @@ Implementing PDARTS for genomics
 cd baseline_models
 python train_cnn_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
 ```
+## DanQ
+```
+cd baseline_models
+python train_LSTM_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
+```
+
+# Run DARTS for Genomics
+## Run search stage
+```
+cd genomicsDARTS
+python train_search.py --unrolled
+```
+
+## Evaluate final Architecture
+
+```
+cd genomicsDARTS
+python train_finalArchitecture.py --unrolled
+```
