@@ -12,3 +12,8 @@ Implementing PDARTS for genomics
 1. Implementing BONAS for genomics
 2. Random Search
 3. Hyperband
+
+
+# Run baseline Models
+
+'cd baseline_models'
