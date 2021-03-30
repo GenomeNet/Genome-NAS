@@ -16,4 +16,6 @@ Implementing PDARTS for genomics
 
 # Run baseline Models
 
-'cd baseline_models'
+```
+cd baseline_models
+```
