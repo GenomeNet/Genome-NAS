@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 16 10:24:24 2021
+
+@author: amadeu
+"""
+
 import argparse
 import os, sys, glob
 import time
@@ -12,7 +20,6 @@ from architect import Architect
 
 import genotypes_rnn
 
-
 import gc
 
 import data
@@ -23,12 +30,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from utils import repackage_hidden, create_exp_dir, save_checkpoint # batchify, get_batch,
 import utils
 
+#from ..data_preprocessing import get_data
 import data_preprocessing as dp
 
 
 parser = argparse.ArgumentParser(description='DARTS for genomic Data')
 parser.add_argument('--data', type=str, default='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt', help='location of the data corpus')
-
 #parser.add_argument('--emsize', type=int, default=128,
 #                    help='size of word embeddings')
 #parser.add_argument('--nhid', type=int, default=128,
@@ -114,8 +121,6 @@ _, valid_data, num_classes = dp.data_preprocessing(data_file =args.data,
           seq_size = args.bptt, representation = 'onehot', model_type = 'CNN', batch_size=eval_batch_size)
 
 
-
-
 if args.small_batch_size < 0:
     args.small_batch_size = args.batch_size
     
@@ -146,7 +151,6 @@ else:
                            args.init_channels, args.num_classes, args.layers, args.steps, args.multiplier, args.stem_multiplier) 
    
     
-
 size = 0
 for p in model.parameters():
     size += p.nelement()
@@ -237,13 +241,14 @@ def train(epoch):
     s_id = 0
     
     for step, (input, target) in enumerate(train_object):
-        
+
+        if step > 2000:
+            break
         data, targets = input, target
         data_valid, targets_valid = next(iter(valid_object))
         
         targets = torch.max(targets, 1)[1]
-        targets_valid = torch.max(targets_valid, 1)[1]
-        
+        targets_valid = torch.max(targets_valid, 1)[1]  
         
         bptt = args.bptt if np.random.random() < 0.95 else args.bptt / 2.
      
@@ -254,9 +259,8 @@ def train(epoch):
        
         model.train()
 
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
 
-  
         cur_data, cur_targets = data, targets
         cur_data_valid, cur_targets_valid = data_valid, targets_valid
 
@@ -286,9 +290,9 @@ def train(epoch):
         #if args.alpha > 0: # per default args.alpha=0, so we don't need this part
         #  loss = loss + sum(args.alpha * dropped_rnn_h.pow(2).mean() for dropped_rnn_h in dropped_rnn_hs[-1:])
         # Temporal Activation Regularization (slowness)
-        loss = loss + sum(args.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
-        loss *= args.small_batch_size / args.batch_size
-        total_loss += raw_loss.data * args.small_batch_size / args.batch_size
+        #loss = loss + sum(args.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
+        #loss *= args.small_batch_size / args.batch_size
+        #total_loss += raw_loss.data * args.small_batch_size / args.batch_size
         
         loss.backward()
 
@@ -297,7 +301,6 @@ def train(epoch):
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs.
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
         optimizer.step()
-     
         
         prec1,prec2 = utils.accuracy(log_prob, targets, topk=(1,2)) 
         
@@ -320,8 +323,6 @@ def train(epoch):
     logging.info('{} epoch done   '.format(epoch) + str(parallel_model.genotype()))
 
     return top1.avg, objs.avg
-
-
 
 
 
