@@ -17,9 +17,10 @@ Implementing PDARTS for genomics
 # Run baseline Models
 
 ## DeepVirFinder
+Run following Code to run a LSTM based basline model such as DanQ. Of course, you have to adapt the path of your data.
 ```
 cd baseline_models
-python train_cnn_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
+python train_LSTM_based.py --batch_size=32 --seq_size=150 --epochs=30 --data=/home/ascheppa/miniconda2/envs/GenomNet_MA/data/trainset.txt
 ```
 ## DanQ
 ```
