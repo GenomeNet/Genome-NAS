@@ -52,6 +52,7 @@ parser.add_argument('--num_motifs', type=int, default=100, help='number of chann
 parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
 parser.add_argument('--grad_clip', type=float, default=5, help='gradient clipping')
+parser.add_argument('--report_freq', type=int, default=5, help='validation report frequency')
 args = parser.parse_args()
 
 
@@ -62,8 +63,7 @@ def main():
   criterion = nn.CrossEntropyLoss().to(device)
   
   if (args.model == "DanQ"):
-            model = models.DanQ_model.NN_class(args.num_classes, args.num_motifs, args.batch_size).to(device)
-            
+            model = models.DanQ_model.NN_class(args.num_classes, args.num_motifs, args.batch_size, args.seq_size).to(device)
             
   optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
   
@@ -86,12 +86,14 @@ def main():
       np.save('train_loss', train_losses)
       np.save('acc_train', acc_train)
       
-      valid_loss, acc_test_epoch = Valid(model, train_queue, valid_queue, optimizer, criterion, device)
-      
-      valid_losses.append(valid_loss)
-      acc_test.append(acc_test_epoch)
-      np.save('acc_test', acc_test)
-      np.save('valid_loss', valid_losses)
+      if epoch % args.report_freq == 0:
+          
+          valid_loss, acc_test_epoch = Valid(model, train_queue, valid_queue, optimizer, criterion, device)
+          
+          valid_losses.append(valid_loss)
+          acc_test.append(acc_test_epoch)
+          np.save('acc_test', acc_test)
+          np.save('valid_loss', valid_losses)
 
       
     
