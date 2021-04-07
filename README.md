@@ -4,12 +4,13 @@ These automatically searched architectures showed competitive performance on ima
 # What I have done so far
 1. Implented genomics baseline models, based on genomics literature
 2. Implemented genomicsDART
+3. Implemented genomicsPDARTS
+
 
 # In Progress
-Implementing PDARTS for genomics
+1. Implementing BONAS for genomics
 
 # Future Work
-1. Implementing BONAS for genomics
 2. Random Search
 3. Hyperband
 
