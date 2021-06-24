@@ -13,18 +13,18 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import namedtuple
 # from model import DARTSCell, RNNModel
-from GenomNet_MA.darts_tools.model import DARTSCell, RNNModel
+from darts_tools.model import DARTSCell, RNNModel
 
 import numpy as np
 
-from GenomNet_MA.generalNAS_tools.operations_14_9 import *
+from generalNAS_tools.operations_14_9 import *
 #from genotypes_cnn import PRIMITIVES_cnn
 #from genotypes_cnn import Genotype_cnn
-from GenomNet_MA.generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
+from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-from GenomNet_MA.darts_tools.genotype_parser import parse_genotype
+from darts_tools.genotype_parser import parse_genotype
 
 #import cnn_eval
 
