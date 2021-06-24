@@ -9,8 +9,8 @@ Created on Mon Jun 21 09:23:20 2021
 
 import logging
 import os
-from GenomNet_MA.BO_tools.configure_files import local_root_dir, local_data_dir, logfile, taskname, results_dir
-from GenomNet_MA.BO_tools.runner import Runner
+from BO_tools.configure_files import local_root_dir, local_data_dir, logfile, taskname, results_dir
+from BO_tools.runner import Runner
 import argparse
 
 import os

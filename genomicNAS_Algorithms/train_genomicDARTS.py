@@ -16,31 +16,31 @@ import logging
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-from GenomNet_MA.darts_tools.architect import Architect
+from darts_tools.architect import Architect
 
 import torch.utils
 
 import copy
 import gc
-import GenomNet_MA.darts_tools.model_search as one_shot_model
-from GenomNet_MA.generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
+import darts_tools.model_search as one_shot_model
+from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
 
-import GenomNet_MA.generalNAS_tools.data_preprocessing_new as dp
+import generalNAS_tools.data_preprocessing_new as dp
 
 # sys.path
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-from GenomNet_MA.generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint 
-import GenomNet_MA.generalNAS_tools.utils
-from GenomNet_MA.generalNAS_tools.train_and_validate import train, infer
+from generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint 
+import generalNAS_tools.utils
+from generalNAS_tools.train_and_validate import train, infer
 
-from GenomNet_MA.generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint 
-from GenomNet_MA.generalNAS_tools import utils
+from generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint 
+from generalNAS_tools import utils
 
-from GenomNet_MA.darts_tools.final_stage_run import final_stage_genotype
-from GenomNet_MA.darts_tools.auxiliary_functions import *
-from GenomNet_MA.darts_tools.discard_operations import discard_cnn_ops, discard_rhn_ops
+from darts_tools.final_stage_run import final_stage_genotype
+from darts_tools.auxiliary_functions import *
+from darts_tools.discard_operations import discard_cnn_ops, discard_rhn_ops
 
 
 
