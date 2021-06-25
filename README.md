@@ -2,11 +2,30 @@ Recently there has been a rapid development of new NAS algorithms. While earlier
 These automatically searched architectures showed competitive performance on image classification or objective detection tasks. However there is no research, how NAS algorithms perform on genomics data. The main contribution of this work is, to investigate how state-of-the art NAS algorithms, such as DARTS, P-DARTS, BONAS , Hyperband and random search can be used to find high-performance deep learning architectures in the field of genomics.
 
 
+## Tested with
+
+- Python 3.6
+- Ubuntu 20.04
+- pytorch >= 1.5
+- CUDA 10.2
+
+
+## Setup
+
+conda create --name genomeNAS python=3.6
+
+source activate genomeNAS
+
+git clone https://github.com/ascheppach/GenomNet_MA.git
+
+cd GenomNet_MA
+
+export PYTHONPATH="$PYTHONPATH:~/supervisor"
 
 
 # Run baseline Models
 
-## DeepVirFinder
+## DeepSEA
 Run following Code to run a LSTM based basline model such as DanQ. Of course, you have to adapt the path of your data.
 ```
 cd baseline_models
@@ -18,8 +37,7 @@ cd baseline_models
 python train_LSTM_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
 ```
 
-# Run DARTS for Genomics
-## Run search stage
+# Run NAS algorithms for Genomics
 ``````
 
 ## Evaluate final Architecture
