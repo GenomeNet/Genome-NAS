@@ -24,6 +24,7 @@ export PYTHONPATH="$PYTHONPATH:~/supervisor"
 ```
 
 ## Data
+To get the data for the predcion of noncoding variants please follow the instuctions of the DeepSea authors and download the data from their website.
 
 
 ## Run baseline Models
