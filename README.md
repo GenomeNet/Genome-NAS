@@ -8,9 +8,7 @@ These automatically searched architectures showed competitive performance on ima
 
 - Python 3.6
 - Ubuntu 20.04
-- pytorch >= 1.5
-- CUDA 10.2
-
+- torch 1.7.1+cu101
 
 ## Setup
 ```
@@ -24,6 +22,9 @@ cd GenomNet_MA
 
 export PYTHONPATH="$PYTHONPATH:~/supervisor"
 ```
+
+## Data
+
 
 ## Run baseline Models
 
