@@ -11,7 +11,7 @@ These automatically searched architectures showed competitive performance on ima
 
 
 ## Setup
-
+```
 conda create --name genomeNAS python=3.6
 
 source activate genomeNAS
@@ -21,7 +21,7 @@ git clone https://github.com/ascheppach/GenomNet_MA.git
 cd GenomNet_MA
 
 export PYTHONPATH="$PYTHONPATH:~/supervisor"
-
+```
 
 # Run baseline Models
 
