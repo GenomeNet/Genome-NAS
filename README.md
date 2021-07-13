@@ -20,7 +20,7 @@ git clone https://github.com/ascheppach/GenomNet_MA.git
 
 cd GenomNet_MA
 
-export PYTHONPATH="$PYTHONPATH:~/supervisor"
+export PYTHONPATH="$PYTHONPATH:~/GenomNet_MA"
 ```
 
 ## Data
