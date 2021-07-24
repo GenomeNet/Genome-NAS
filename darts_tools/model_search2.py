@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Apr  2 12:40:21 2021
+Created on Tue Jul 20 20:28:03 2021
 
 @author: amadeu
 """
@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import namedtuple
 # from model import DARTSCell, RNNModel
-from darts_tools.model_discCNN import DARTSCell, RNNModel
+from darts_tools.model2 import DARTSCell, RNNModel
 
 import numpy as np
 
@@ -85,10 +85,10 @@ class DARTSCellSearch(DARTSCell):
     
     for i in range(rnn_steps):
         # i=7
-        #if self.training: 
-        #    masked_states = states * h_mask.unsqueeze(0) 
-        #else:
-        masked_states = states
+        if self.training: 
+            masked_states = states * h_mask.unsqueeze(0) 
+        else:
+            masked_states = states
         
         ch = masked_states.view(-1, self.nhid).mm(self._Ws[i]).view(i+1, -1, 2*self.nhid) 
       
@@ -117,7 +117,14 @@ class DARTSCellSearch(DARTSCell):
               
             # s += torch.sum(probs[rows[cnt], cols[cnt]].unsqueeze(-1).unsqueeze(-1) * unweighted[nodes[cnt], :, :], dim=0) 
             s += torch.sum(probs[self.rows[i+k], self.cols[i+k]] * unweighted[self.nodes[i+k], :, :], dim=0) 
-           
+            # probs[rows[29], cols[29]]
+            # rows = [0,1]
+            # te = torch.index_select(probs, 0, torch.tensor(rows)).unsqueeze(-1).unsqueeze(-1)
+            # cols = [0,1]
+            # te = torch.index_select(te, 1, torch.tensor(cols)
+            
+            # sm = torch.sum(probs[rows[cnt], cols[cnt]].unsqueeze(-1).unsqueeze(-1) * unweighted, dim=0) 
+            #cnt += 1 
             
         s = self.bn(s) 
         states = torch.cat([states, s.unsqueeze(0)], 0) 

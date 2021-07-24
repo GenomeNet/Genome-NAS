@@ -30,6 +30,8 @@ concat = range(2+_steps-_multiplier, _steps+2)
 def parse_genotype(switches_normal_cnn, arch_normal, switches_reduce_cnn, arch_reduce, switches_rnn, arch_rnn):
     
         alphas_rnn = F.softmax(arch_rnn, dim=-1)#.data.cpu().numpy()
+        # alphas_rnn = F.softmax(alphas_rnn, dim=-1).data.cpu().numpy()
+
         # alphas_rnn = alphas_rnn.data.cpu().numpy()
         # alphas_rnn = np.copy(arch_rnn.data.cpu().numpy())
             
