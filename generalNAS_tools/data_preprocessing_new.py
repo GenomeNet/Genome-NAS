@@ -21,13 +21,15 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 import re
 
+
 import os
 
-# train_directory = '/home/amadeu/Downloads/genomicData/train' # muss in arg.parser übergeben werden
-# valid_directory = '/home/amadeu/Downloads/genomicData/validation'
-# num_files = 3
-# seq_size = 15
-# batch_size = 2
+#train_directory = '/home/amadeu/Downloads/genomicData/train' # muss in arg.parser übergeben werden
+#valid_directory = '/home/amadeu/Downloads/genomicData/validation'
+#num_files = 3
+#seq_size = 15
+#batch_size = 2
+#next_character=True
 
 
 def data_preprocessing(train_directory, valid_directory, num_files, seq_size, batch_size, next_character):
@@ -41,7 +43,7 @@ def data_preprocessing(train_directory, valid_directory, num_files, seq_size, ba
         
         for i in range(num_files): # for each folder
             
-            trainsubfold = trainfolder_list[i] # würde nicht aufgehen, wenn validfolder_list weniger ordner hat
+            trainsubfold = trainfolder_list[i] #
             trainsubfold = os.path.join(train_directory, trainsubfold) 
             trainlines = open(trainsubfold, 'r').readlines()
             for idx, _ in enumerate(trainlines): # for each line of a folder: delete a line, which begins with '>' or ';'
@@ -54,7 +56,7 @@ def data_preprocessing(train_directory, valid_directory, num_files, seq_size, ba
             trainmainfold = trainmainfold + trainlines
             
             
-            validsubfold = validfolder_list[i] # würde nicht aufgehen, wenn validfolder_list weniger ordner hat
+            validsubfold = validfolder_list[i] 
             validsubfold = os.path.join(valid_directory, validsubfold)  
             validlines = open(validsubfold, 'r').readlines()
                   
@@ -151,13 +153,16 @@ def data_preprocessing(train_directory, valid_directory, num_files, seq_size, ba
                 
             
             train_input.append(feat_seq_train)
-            train_target.append(target_seq_train)
+            train_target.append(np.argmax(target_seq_train, axis=0))
             
             valid_input.append(feat_seq_valid)
-            valid_target.append(target_seq_valid)
+            valid_target.append(np.argmax(target_seq_valid, axis=0))
            
             
-        return array(train_input, dtype='uint8'), array(train_target, dtype='uint8'), array(valid_input, dtype='uint8'), array(valid_target, dtype='uint8')
+        return torch.Tensor(train_input).long(), torch.Tensor(train_target).long(), torch.Tensor(valid_input).long(), torch.Tensor(valid_target).long()
+        # return torch.Tensor(train_input).to(device).long(), torch.Tensor(train_target).to(device).long(), torch.Tensor(valid_input).to(device).long(), torch.Tensor(valid_target).to(device).long()
+
+        # return array(train_input, dtype='uint8'), array(train_target, dtype='uint8'), array(valid_input, dtype='uint8'), array(valid_target, dtype='uint8')
 
 
 
@@ -178,9 +183,10 @@ def data_preprocessing(train_directory, valid_directory, num_files, seq_size, ba
     train_feat, train_targ, valid_feat, valid_targ = create_sequences(traintext = traintext, validtext = validtext, seq_size = seq_size, next_character = next_character)
     
     
+    
     train = get_data(train_feat, train_targ)# 
     valid = get_data(valid_feat, valid_targ)
     train_loader = torch.utils.data.DataLoader(train,batch_size,shuffle=True)#  shuffle ensures random choices of the sequences
-    valid_loader = torch.utils.data.DataLoader(valid,batch_size,shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(valid,batch_size,shuffle=False)
     
     return train_loader, valid_loader, num_classes

@@ -121,140 +121,222 @@ parser.add_argument('--report_freq', type=float, default=1000, help='report freq
 args = parser.parse_args()
 
 
-train_object, valid_object, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
-        seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
-
-
 args.save = '{}search-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
-log_format = '%(asctime)s %(message)s'
-logging.basicConfig(stream=sys.stdout, level=logging.INFO,
-    format=log_format, datefmt='%m/%d %I:%M:%S %p')
-fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
-fh.setFormatter(logging.Formatter(log_format))
-#logging.getLogger().addHandler(fh)
-
-logging = logging.getLogger(__name__)
 
 
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-
-
-if args.continue_train:
-    model = torch.load(os.path.join(args.save, 'model.pt'))
-else:      
+def main():
     
-    genotype = np.load(args.genotype_file, allow_pickle=True)
-    # my_gene = genotype
-    # his_gene = genotype
-
-
-    model = one_shot_model.RNNModel(args.seq_len, args.dropouth, args.dropoutx,
-                        args.init_channels, args.num_classes, args.layers, args.steps, args.multiplier, args.stem_multiplier,
-                        args.search, args.drop_path_prob, genotype=genotype).to(device)
     
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  
+    # criterion = nn.BCELoss()
+  
+    if (args.task == "next_character_prediction"):
+        import generalNAS_tools.data_preprocessing_new as dp
+      
+        train_queue, valid_queue, test_queue, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, test_directory = args.test_directory, num_files=args.num_files,
+                  seq_size = args.seq_size, batch_size=args.batch_size, next_character=args.next_character_prediction)
 
-criterion = nn.CrossEntropyLoss()
-criterion = criterion.to(device)
-
-
-conv = []
-rhn = []
-for name, param in model.named_parameters():
-    #print(name)
-    #if 'stem' or 'preprocess' or 'conv' or 'bn' or 'fc' in name:
-    if 'rnns' in name:
+      
+        criterion = nn.CrossEntropyLoss().to(device)
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
+          
+      
+    if (args.task == "TF_bindings"):
+      
+        import generalNAS_tools.data_preprocessing_TF as dp
+        
+        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_direcotry, args.batch_size)
+        
+        criterion = nn.BCELoss().to(device)
+        optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
+    
+    
+    
+    
+    
+    log_format = '%(asctime)s %(message)s'
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+        format=log_format, datefmt='%m/%d %I:%M:%S %p')
+    fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
+    fh.setFormatter(logging.Formatter(log_format))
+    #logging.getLogger().addHandler(fh)
+    
+    logging = logging.getLogger(__name__)
+    
+    
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    
+    
+    if args.continue_train:
+        model = torch.load(os.path.join(args.save, 'model.pt'))
+    else:      
+        
+        genotype = np.load(args.genotype_file, allow_pickle=True)
+        # genotype = np.load('/home/amadeu/Desktop/GenomNet_MA/EXPsearch-try-20210626-091257-random_geno.npy', allow_pickle=True)
+    
+        # my_gene = genotype
+        # his_gene = genotype
+    
+    
+        model = one_shot_model.RNNModel(args.seq_len, args.dropouth, args.dropoutx,
+                            args.init_channels, args.num_classes, args.layers, args.steps, args.multiplier, args.stem_multiplier,
+                            args.search, args.drop_path_prob, genotype=genotype, task=args.task).to(device)
+        
+    
+    criterion = nn.CrossEntropyLoss()
+    criterion = criterion.to(device)
+    
+    
+    conv = []
+    rhn = []
+    for name, param in model.named_parameters():
         #print(name)
-        rhn.append(param)
-        #elif 'decoder' in name:
-    else:
-        #print(name)
-        conv.append(param)
-        
-optimizer = torch.optim.SGD([{'params':conv}, {'params':rhn}], lr=args.cnn_lr, weight_decay=args.cnn_weight_decay)
-optimizer.param_groups[0]['lr'] = args.cnn_lr
-optimizer.param_groups[0]['weight_decay'] = args.cnn_weight_decay
-optimizer.param_groups[0]['momentum'] = args.momentum
-optimizer.param_groups[1]['lr'] = args.rhn_lr
-optimizer.param_groups[1]['weight_decay'] = args.rhn_weight_decay
-        
-
-        
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-         optimizer, float(args.epochs), eta_min=args.learning_rate_min)
-
-
-all_train_losses = []
-all_valid_losses = []
-all_acc_train = []
-all_acc_valid = []
-
-optimizer_a=None
-
-clip_params = [args.conv_clip, args.rhn_clip, args.clip]
-
-
-for run in range(args.num_runs):
-    # run=0
+        #if 'stem' or 'preprocess' or 'conv' or 'bn' or 'fc' in name:
+        if 'rnns' in name:
+            #print(name)
+            rhn.append(param)
+            #elif 'decoder' in name:
+        else:
+            #print(name)
+            conv.append(param)
+            
+    optimizer = torch.optim.SGD([{'params':conv}, {'params':rhn}], lr=args.cnn_lr, weight_decay=args.cnn_weight_decay)
+    optimizer.param_groups[0]['lr'] = args.cnn_lr
+    optimizer.param_groups[0]['weight_decay'] = args.cnn_weight_decay
+    optimizer.param_groups[0]['momentum'] = args.momentum
+    optimizer.param_groups[1]['lr'] = args.rhn_lr
+    optimizer.param_groups[1]['weight_decay'] = args.rhn_weight_decay
+            
     
-    oneRun_train_losses = []
-    oneRun_valid_losses = []
-    oneRun_acc_train = []
-    oneRun_acc_valid = []
+            
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+             optimizer, float(args.epochs), eta_min=args.learning_rate_min)
     
-    for epoch in range(1, args.epochs+1):
+    
+    optimizer_a=None
+    
+    clip_params = [args.conv_clip, args.rhn_clip, args.clip]
+    
+    
+    #for run in range(args.num_runs):
+        # run=0
+        
+    train_losses = []
+    valid_losses = []
+    
+    train_acc = []
+    #all_predictions_train = []
+    valid_acc = []
+    #all_predictions_valid = []
+    time_per_epoch = []
+    
+    train_start = time.strftime("%Y%m%d-%H%M")
+
+    for epoch in range(args.epochs):
         # epoch=1
-        
-        train_start = time.strftime("%Y%m%d-%H%M")
-    
+                    
         epoch_start_time = time.time()
-        
+            
         lr = scheduler.get_last_lr()[0]
-
-        train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
-        
+    
+        labels, predictions, train_loss = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
+            
         scheduler.step()
+    
+        labels = np.concatenate(labels)
+        predictions = np.concatenate(predictions)
+        
+        if args.task == 'next_character_prediction':
+                acc = overall_acc(labels, predictions, args.task)
+                logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
+                train_acc.append(acc)
 
-        oneRun_train_losses.append(train_obj) # after each run, oneRun_train_losses will be a list if 50 elements (if we have 50 epochs)
-        oneRun_acc_train.append(train_acc)
-        
+
+        else:
+                f1 = overall_f1(labels, predictions, args.task)
+                logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
+                train_acc.append(f1)
+
+     
+      
+        #all_labels_train.append(labels)
+        #all_predictions_train.append(predictions)
+        train_losses.append(train_loss)
+        epoch_end = time.time()
+        time_per_epoch.append(epoch_end)
+      
+       
+            
         if epoch % 5 == 0:
-              torch.save(model.state_dict(), 'train_-epoch{}.pth'.format(epoch)) 
-        
+            torch.save(model.state_dict(), 'train_-epoch{}.pth'.format(epoch)) 
+            
         # determine the validation loss in every 5th epoch 
         if args.validation == True:
-            
+                
             if epoch % args.report_validation == 0:
-                
-                valid_acc, valid_obj = infer(valid_object, model, criterion, args.batch_size, args.num_steps, args.report_freq)
+                    
+                labels, predictions, valid_loss = infer(valid_object, model, criterion, args.batch_size, args.num_steps, args.report_freq)
                 logging.info('Valid_acc %f', valid_acc)
-                        
-                oneRun_valid_losses.append(valid_obj)
-                oneRun_acc_valid.append(valid_acc)
-    
-    # at the end we have a list with 10 elements (if 10 is num_runs) and each of these elements is another list with 50 elements (num_epochs)
-    all_train_losses.append(oneRun_train_losses) # in each runner iteration a list of length 50 is added
-    all_acc_train.append(oneRun_acc_train)
-    all_valid_losses.append(oneRun_valid_losses)
-    all_acc_valid.append(oneRun_acc_valid)
-                
-          
+               
+                valid_losses.append(valid_loss)
+                #all_labels_valid.append(labels)
+                #all_predictions_valid.append(predictions)
             
-    if run == args.num_runs: # if last epoch is reached
-        final_trainloss_file = '{}-finaltrain_loss-{}'.format(args.save, train_start)
-        np.save(final_trainloss_file, all_train_losses)
+                if args.task == 'next_character_prediction':
+                    acc = overall_acc(labels, predictions, args.task)
+                    logging.info('| epoch {:3d} | valid acc {:5.2f}'.format(epoch, acc))
+                    valid_acc.append(acc)
+
+                else:
+                    f1 = overall_f1(labels, predictions, args.task)
+                    logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, f1))
+                    valid_acc.append(f1)
+                
+                
+    torch.save(model, args.model_path)
+  
+    trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
+    np.save(trainloss_file, train_losses)
+    acc_train_file = '{}-labels_train-{}'.format(args.save, train_start)
+    np.save(acc_train_file, train_acc)
+    #predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
+    #np.save(predictions__train_file, all_predictions_train)
       
-        final_acctrain_file = '{}-finalacc_train-{}'.format(args.save, train_start) 
-        np.save(final_acctrain_file, all_acc_train)
-         
-        final_validloss_file = '{}-finalvalid_loss-{}'.format(args.save, train_start)
-        np.save(final_validloss_file, all_valid_losses)
+
+    # safe valid data
+    validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
+    np.save(validloss_file, valid_losses)
+    acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
+    np.save(acc_valid_file, valid_acc)
+    #predictions__valid_file = '{}-predictions_valid-{}'.format(args.save, train_start)
+    #np.save(predictions__valid_file, all_predictions_valid)
+            
+        
+    test_losses = []
+    all_labels_test = []
+    all_predictions_test = []
+
+    #train_start = time.strftime("%Y%m%d-%H%M")
+  
+    for epoch in range(args.test_epochs):
+      
+        labels, predictions, test_loss = Valid(model, train_queue, valid_queue, optimizer, criterion, device, args.test_num_steps, args.report_freq)
           
-        final_accvalid_file = '{}-finalacc_valid-{}'.format(args.save, train_start)
-        np.save(final_accvalid_file, all_acc_valid)
-        
-        
+        test_losses.append(test_loss)
+        all_labels_test.append(labels)
+        all_predictions_test.append(predictions)
+      
 
-
+    testloss_file = '{}-test_loss-{}'.format(args.save, train_start)
+    np.save(testloss_file, test_losses)
+    labels_test_file = '{}-labels_test-{}'.format(args.save, train_start)
+    np.save(labels_test_file, all_labels_test)
+    predictions_test_file = '{}-predictions_test-{}'.format(args.save, train_start)
+    np.save(predictions_test_file, all_predictions_test)
+    
+    

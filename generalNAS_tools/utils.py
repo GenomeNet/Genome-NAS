@@ -17,6 +17,212 @@ import torch.nn as nn
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+from sklearn.metrics import f1_score, recall_score, precision_score, f1_score
+
+from sklearn.metrics import classification_report
+# precision, recall, f1
+from sklearn.metrics import f1_score, recall_score, precision_score
+# ROC PR, ROC AUC
+from sklearn.metrics import roc_auc_score, auc
+
+#from sklearn.metrics import average_precision_score, average_recall_score
+from sklearn.metrics import precision_recall_curve
+
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, average_precision_score
+
+from sklearn.metrics import classification_report
+
+from sklearn.preprocessing import label_binarize
+
+
+import matplotlib.pyplot as plt
+
+
+
+def scores_perClass(labels, predictions, task):
+    precisions = dict()
+    recalls = dict()
+    f1 = dict()
+    accuracies = dict()
+    predictions = np.round(predictions) # to get hard labels from scores
+
+    
+    if task=='TF_bindings':
+        num_classes = len(labels[1])
+    
+    else:
+        labels = label_binarize(labels, classes=[0, 1, 2, 3])
+        num_classes = labels.shape[1]
+        
+    for i in range(num_classes):
+            # i=0
+            precisions[i] = precision_score(labels[:,i], predictions[:,i])
+            recalls[i] = recall_score(labels[:,i], predictions[:,i])
+            f1[i] = f1_score(labels[:,i], predictions[:,i])
+            accuracies[i] = accuracy_score(labels[:,i], predictions[:,i])
+        
+    return precisions, recalls, f1, accuracies
+
+# prec, rec, f1, acc = scores_perClass(labels, predictions)
+
+# print(classification_report(labels, predictions))
+
+#from sklearn.metrics import confusion_matrix
+#y_true = [2, 0, 2, 2, 0, 1]
+#y_pred = [0, 0, 2, 2, 0, 2]
+#matrix = confusion_matrix(y_true, y_pred)
+#matrix.diagonal()/matrix.sum(axis=1)
+
+# print(classification_report(y_true, y_pred))
+# recalls[i] = recall_score(labels[:,i], predictions[:,i])
+
+
+
+# weighted overall scores
+
+def scores_Overall(labels, predictions, task):
+    if task=='TF_bindings':
+        
+        predictions = np.round(predictions)
+    else:
+        predictions = np.argmax(predictions, axis=1)
+        
+    recall = recall_score(labels, predictions, average='weighted')
+    precision = precision_score(labels, predictions, average='weighted')
+    f1 = f1_score(labels, predictions, average='weighted')
+    accuracy = accuracy_score(labels, predictions) ###########
+    
+    return precision, recall, f1, accuracy
+
+
+
+
+def overall_acc(labels, predictions, task):
+    if task=='TF_bindings':
+        
+        predictions = np.round(predictions)
+    else:
+        predictions = np.argmax(predictions, axis=1)
+        
+    accuracy = accuracy_score(labels, predictions) ###########
+    
+    return accuracy
+
+def overall_f1(labels, predictions, task):
+    if task=='TF_bindings':
+        
+        predictions = np.round(predictions)
+    else:
+        predictions = np.argmax(predictions, axis=1)
+        
+    f1 = f1_score(labels, predictions, average='weighted')
+    
+    return f1
+
+
+
+
+# PR-Curve
+
+def pr_aucPerClass(labels, predictions, task):
+    
+   average_precision_scores = dict()
+
+   if task=='TF_bindings':
+       num_classes = len(labels[1])
+       
+   else:
+       labels = label_binarize(labels, classes=[0, 1, 2, 3])
+       num_classes = labels.shape[1]
+   for i in range(num_classes):
+       # i=0
+       # precisions[i], recalls[i], _ = precision_recall_curve(labels[:,i], predictions[:,i])
+       average_precision_scores[i] = average_precision_score(labels[:,i], predictions[:,i])
+
+   
+   return average_precision_scores
+    
+    
+
+def roc_aucPerClass(labels, predictions, task):
+    roc_auc_scores = dict()
+
+    if task=='TF_bindings':
+        num_classes = len(labels[1])
+
+        for i in range(num_classes):
+            # i=7
+            roc_auc_scores[i] = roc_auc_score(labels[:,i], predictions[:,i])
+    else:
+        labels = label_binarize(labels, classes=[0, 1, 2, 3])
+        num_classes = labels.shape[1]
+        fpr = dict()
+        tpr = dict()
+        for i in range(num_classes):
+            fpr[i], tpr[i], _ = roc_curve(labels[:, i], predictions[:, i])
+            roc_auc_scores[i] = auc(fpr[i], tpr[i])
+        
+    return roc_auc_scores
+
+
+
+
+
+
+    
+#def pr_curveOverall():
+#    precisions = dict()
+#    recalls = dict()
+#    f1_scores = dict()
+#    for i in range(args.num_classes):
+#        # i=0
+#        precision[i], recall[i], _ = precision_recall_curve(labels[:,i], predictions[:,i])
+        
+        
+#    precisions["micro"], recalls["micro"], _ = precision_recall_curve(labels.ravel(), predictions.ravel())
+        
+#    plt.figure()
+#    plt.step(recalls['micro'], precisions['micro'], where='post')
+    
+#    plt.xlabel('Recall')
+#    plt.ylabel('Precision')
+#    plt.ylim([0.0, 1.05])
+#    plt.xlim([0.0, 1.0])
+#    plt.title(
+#        'Average precision score, micro-averaged over all classes: AP={0:0.2f}'
+#        )
+
+#    pr_auc_score = auc(recalls['micro'], precisions['micro'])
+
+
+
+#def roc_curveOverall():
+#    fpr, tpr, _ = roc_curve(testy, pos_probs)
+
+        
+        
+#    precisions["micro"], recalls["micro"], _ = precision_recall_curve(labels.ravel(), predictions.ravel())
+        
+#    plt.figure()
+#    plt.step(recalls['micro'], precisions['micro'], where='post')
+    
+#    plt.xlabel('Recall')
+#    plt.ylabel('Precision')
+#    plt.ylim([0.0, 1.05])
+#    plt.xlim([0.0, 1.0])
+#    plt.title(
+#        'Average precision score, micro-averaged over all classes: AP={0:0.2f}'
+#        )
+
+#    roc_auc_score = roc_auc_score(testy, pos_probs)
+
+    
+    
+
+
+
+
+
 
 
 
@@ -36,11 +242,13 @@ class AvgrageMeter(object):
     self.avg = self.sum / self.cnt
 
 
+# output, target, topk = logits, label,  (1,2)
 def accuracy(output, target, topk=(1,)):
   maxk = max(topk)
   batch_size = target.size(0)
 
   _, pred = output.topk(maxk, 1, True, True)
+  
   pred = pred.t()
   correct = pred.eq(target.view(1, -1).expand_as(pred))
 

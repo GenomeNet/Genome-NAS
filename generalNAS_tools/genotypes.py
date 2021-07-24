@@ -31,11 +31,11 @@ PRIMITIVES_cnn = [
     'max_pool_5',
     'avg_pool_5',
     'skip_connect',
-    'sep_conv_14',
+    'sep_conv_15',
     'sep_conv_9',
-    'dil_conv_14',
+    'dil_conv_15',
     'dil_conv_9',
-    'conv_14'
+    'conv_15'
 ]
 
 
