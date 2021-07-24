@@ -42,6 +42,12 @@ from darts_tools.final_stage_run import final_stage_genotype
 from darts_tools.auxiliary_functions import *
 from darts_tools.discard_operations import discard_cnn_ops, discard_rhn_ops
 
+from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
+
+from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
+
+
+
 
 
 parser = argparse.ArgumentParser(description='DARTS for genomic Data')
@@ -58,7 +64,18 @@ parser.add_argument('--lr', type=float, default=20,
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
 parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloads/genomicData/validation', help='directory of validation data')
 parser.add_argument('--train_directory', type=str, default='/home/amadeu/Downloads/genomicData/train', help='directory of training data')
+parser.add_argument('--test_directory', type=str, default='/home/amadeu/Downloads/genomicData/test', help='directory of test data')
+
 parser.add_argument('--num_files', type=int, default=3, help='number of files for training data')
+
+parser.add_argument('--train_input_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/inputs_small.pkl', help='directory of train data')
+parser.add_argument('--train_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small.pkl', help='directory of train data')
+parser.add_argument('--valid_input_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_val.pkl', help='directory of validation data')
+parser.add_argument('--valid_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_val.pkl', help='directory of validation data')
+parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_test.pkl', help='directory of test data')
+parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test data')
+
+parser.add_argument('--task', type=str, default='next_character_prediction', help='defines the task')#TF_bindings
 
 parser.add_argument('--validation', type=bool, default=True)
 parser.add_argument('--report_validation', type=int, default=2, help='validation epochs') 
@@ -69,20 +86,18 @@ parser.add_argument('--clip', type=float, default=0.25, help='gradient clipping'
 parser.add_argument('--conv_clip', type=float, default=5, help='gradient clipping of convs')
 parser.add_argument('--rhn_clip', type=float, default=0.25, help='gradient clipping of lstms')
 
-parser.add_argument('--seq_len', type=int, default=200, help='sequence length')
+parser.add_argument('--seq_size', type=int, default=200, help='sequence length') # 1000
 parser.add_argument('--weight_decay', type=float, default=3e-4, help='weight decay')
 parser.add_argument('--init_channels', type=int, default=8, help='num of init channels')
 parser.add_argument('--layers', type=int, default=3, help='total number of layers')
-parser.add_argument('--num_classes', type=int, default=4, help='num of output classes') 
+# parser.add_argument('--num_classes', type=int, default=919, help='num of output classes') 
 parser.add_argument('--steps', type=int, default=4, help='total number of Nodes')
-parser.add_argument('--multiplier', type=int, default=4, help='multiplier')
-parser.add_argument('--stem_multiplier', type=int, default=3, help='stem multiplier')
+#parser.add_argument('--multiplier', type=int, default=4, help='multiplier')
+#parser.add_argument('--stem_multiplier', type=int, default=3, help='stem multiplier')
 parser.add_argument('--epochs', type=int, default=2,
                     help='upper epoch limit')
 parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                     help='batch size')
-parser.add_argument('--seq_size', type=int, default=20,
-                    help='sequence length')
 
 parser.add_argument('--dropouth', type=float, default=0.25,
                     help='dropout for hidden nodes in rnn layers (0 = no dropout)')
@@ -95,7 +110,7 @@ parser.add_argument('--nonmono', type=int, default=5,
                     help='random seed')
 parser.add_argument('--cuda', action='store_false',
                     help='use CUDA')
-parser.add_argument('--report_freq', type=float, default=1000, help='report frequency')
+parser.add_argument('--report_freq', type=float, default=2, help='report frequency')
 
 parser.add_argument('--save', type=str,  default='EXP',
                     help='path to save the final model')
@@ -107,10 +122,7 @@ parser.add_argument('--wdecay', type=float, default=5e-7,
                     help='weight decay applied to all weights')
 parser.add_argument('--continue_train', action='store_true',
                     help='continue train from a checkpoint')
-parser.add_argument('--small_batch_size', type=int, default=-1,
-                    help='the batch size for computation. batch_size should be divisible by small_batch_size.\
-                     In our implementation, we compute gradients with small_batch_size multiple times, and accumulate the gradients\
-                     until batch_size is reached. An update step is then performed.')
+
 parser.add_argument('--max_seq_len_delta', type=int, default=20,
                     help='max sequence length')
 parser.add_argument('--single_gpu', default=True, action='store_false', 
@@ -122,11 +134,6 @@ parser.add_argument('--arch_wdecay', type=float, default=1e-3,
 parser.add_argument('--arch_lr', type=float, default=3e-3,
                     help='learning rate for the architecture encoding alpha')
 parser.add_argument('--note', type=str, default='try', help='note for this run')
-
-#parser.add_argument('--arch', type=str, default='DARTS', help='which architecture to use')
-#parser.add_argument('--search', type=bool, default=True, help='which architecture to use')
-#parser.add_argument('--auxiliary', action='store_true', default=False, help='use auxiliary tower')
-#parser.add_argument('--auxiliary_weight', type=float, default=0.4, help='weight for auxiliary loss')
 args = parser.parse_args()
 
 
@@ -150,15 +157,37 @@ def main():
       
     logging.info("args = %s", args)
            
-    train_object, valid_object, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
-            seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
+    #train_object, valid_object, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
+    #        seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
     
-    _, valid_data, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
-            seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
+    #_, valid_data, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
+    #        seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
+    
+    if args.task == "next_character_prediction" or "sequence_to_sequence":
+        
+        import generalNAS_tools.data_preprocessing_new as dp
+
+        train_queue, valid_queue, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
+                seq_size = args.seq_size, batch_size=args.batch_size, next_character=args.next_character_prediction)
+      
+        _, test_queue, _ = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.test_directory, num_files=args.num_files,
+                seq_size = args.seq_size, batch_size=args.batch_size, next_character=args.next_character_prediction)
+        
+        criterion = nn.CrossEntropyLoss().to(device)
+        
+    if args.task == 'TF_bindings':
+        
+        import generalNAS_tools.data_preprocessing_TF as dp
+        
+        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+      
+        criterion = nn.BCELoss().to(device)
+
+        num_classes = 919
+    
         
     # build Network
-    criterion = nn.CrossEntropyLoss()
-    criterion = criterion.to(device)
+    
     
     
     # initialize switches
@@ -191,12 +220,17 @@ def main():
            
     alphas_rnn = nn.Parameter(torch.FloatTensor(1e-3*np.random.randn(k_rhn, num_ops_rhn)))
     
+    multiplier, stem_multiplier = 4,3
+    
 
-    model = one_shot_model.RNNModelSearch(args.seq_len, args.dropouth, args.dropoutx,
-                              args.init_channels, args.num_classes, args.layers, args.steps, args.multiplier, args.stem_multiplier,  
-                              True, 0.2, None, nn.CrossEntropyLoss().to(device), 
+    model = one_shot_model.RNNModelSearch(args.seq_size, args.dropouth, args.dropoutx,
+                              args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,  
+                              True, 0.2, None, args.task, 
                               switches_normal_cnn, switches_reduce_cnn, switches_rnn, 0.0, alphas_normal, alphas_reduce, alphas_rnn) 
                                   # float(drop_rate[sp])) 
+                                  
+    # old_dict = model.state_dict()
+
         
     if args.cuda:
         if args.single_gpu:
@@ -247,12 +281,17 @@ def main():
     
     architect = Architect(model, args)
 
-    
-    
     train_losses = []
     valid_losses = []
-    acc_train = []
-    acc_valid = []
+    
+    train_acc = []
+    #all_predictions_train = []
+    
+    valid_acc = []
+    #all_predictions_valid = []
+    
+    time_per_epoch = []
+    
     
     clip_params = [args.conv_clip, args.rhn_clip, args.clip]
     
@@ -264,45 +303,90 @@ def main():
             lr = scheduler.get_last_lr()[0]
             logging.info('Epoch: %d lr: %e', epoch, lr)
             epoch_start = time.time()
-           
-            train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=True, pdarts=False)
+
+            labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False, task=args.task)
             
             scheduler.step()
+            
+            labels = np.concatenate(labels)
+            predictions = np.concatenate(predictions)
+            
+            if args.task == 'next_character_prediction':
+                acc = overall_acc(labels, predictions, args.task)
+                logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
+                train_acc.append(acc)
+
+
+            else:
+                f1 = overall_f1(labels, predictions, args.task)
+                logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
+                train_acc.append(f1)
+
+     
+      
+            #all_labels_train.append(labels)
+            #all_predictions_train.append(predictions)
+            train_losses.append(train_loss)
+            epoch_end = time.time()
+            time_per_epoch.append(epoch_end)
 
             
             # validation
             if args.validation == True:
                 if epoch % args.report_validation == 0:
-                    valid_acc, valid_obj = infer(valid_object, model, criterion, args.batch_size, args.num_steps, args.report_freq)
+                    labels, predictions, valid_obj = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
                     logging.info('Valid_acc %f', valid_acc)
                     
-                    valid_losses.append(valid_obj)
-                    acc_valid.append(valid_acc)
+                    labels = np.concatenate(labels)
+                    predictions = np.concatenate(predictions)
+                    
+                    valid_losses.append(valid_loss)
+                    #all_labels_valid.append(labels)
+                    #all_predictions_valid.append(predictions)
             
-            train_losses.append(train_obj)
-            acc_train.append(train_acc)
+                    if args.task == 'next_character_prediction':
+                        acc = overall_acc(labels, predictions, args.task)
+                        logging.info('| epoch {:3d} | valid acc {:5.2f}'.format(epoch, acc))
+                        valid_acc.append(acc)
+
+                    else:
+                        f1 = overall_f1(labels, predictions, args.task)
+                        logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, f1))
+                        valid_acc.append(f1)
             
-            logging.info('Train_acc %f', train_acc)
-            epoch_duration = time.time() - epoch_start
+          
+            
+            epoch_end = time.time()
+            epoch_duration = epoch_end - epoch_start
             logging.info('Epoch time: %ds', epoch_duration)
+            time_per_epoch.append(epoch_end)
+            
+            genotype = model.genotype()
+            logging.info(genotype) 
             
     
     
-    genotype_file = '{}-pdarts_geno'.format(args.save)
+    genotype_file = '{}-darts_geno'.format(args.save)
     np.save(genotype_file, genotype)
-            
+  
     trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
     np.save(trainloss_file, train_losses)
+    acc_train_file = '{}-labels_train-{}'.format(args.save, train_start)
+    np.save(acc_train_file, train_acc)
+    #predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
+    #np.save(predictions__train_file, all_predictions_train)
+    
+    time_file = '{}-time-{}'.format(args.save, train_start)
+    np.save(time_file, time_per_epoch)
       
-    acctrain_file = '{}-acc_train-{}'.format(args.save, train_start) 
-    np.save(acctrain_file, acc_train)
-         
+
+    # safe valid data
     validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
     np.save(validloss_file, valid_losses)
-      
-    accvalid_file = '{}-acc_valid-{}'.format(args.save, train_start) 
-    np.save(acctrain_file, acc_valid)
-   
+    acc_valid_file = '{}-labels_valid-{}'.format(args.save, train_start)
+    np.save(acc_valid_file, valid_acc)
+    #predictions__valid_file = '{}-predictions_valid-{}'.format(args.save, train_start)
+    #np.save(predictions__valid_file, all_predictions_valid)
     
 
 

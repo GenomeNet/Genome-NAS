@@ -214,7 +214,7 @@ def main():
     
     # iterate over stages
     for sp in range(len(num_to_keep)): 
-        # sp=6
+        # sp=5
         
         if sp ==0:
          
@@ -331,12 +331,14 @@ def main():
             if epoch < eps_no_arch: 
                 model.p = float(drop_rate[sp]) * (epochs - epoch - 1) / epochs 
                 model.update_p()           
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
+
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, None, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=True)
 
             else:
                 model.p = float(drop_rate[sp]) * np.exp(-(epoch - eps_no_arch) * scale_factor) 
                 model.update_p()  
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=True)
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, None, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=True)
+
 
             if args.validation == True:
                 if epoch % args.report_validation == 0:

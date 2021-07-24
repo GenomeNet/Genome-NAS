@@ -21,7 +21,9 @@ import torchvision.datasets as dset
 import torch.backends.cudnn as cudnn
 import copy
 import gc
-import darts_tools.model_search as one_shot_model
+#import darts_tools.model_search as one_shot_model
+import model_search as one_shot_model
+
 from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
 # from genotypes_rnn import PRIMITIVES, STEPS, CONCAT, total_genotype
 
@@ -44,6 +46,7 @@ from darts_tools.auxiliary_functions import *
 from darts_tools.discard_operations import discard_cnn_ops, discard_rhn_ops
 
 
+from torch.autograd import Variable
 
 
 parser = argparse.ArgumentParser("cifar")
@@ -89,6 +92,10 @@ parser.add_argument('--cutout_length', type=int, default=16, help='cutout length
 parser.add_argument('--drop_path_prob', type=float, default=0.3, help='drop path probability')
 parser.add_argument('--beta', type=float, default=1e-3,
                     help='beta slowness regularization applied on RNN activiation (beta = 0 means no regularization)')
+parser.add_argument('--unrolled', action='store_true', default=False, help='use one-step unrolled validation loss')
+parser.add_argument('--pdarts', type=bool, default=True)
+
+
 parser.add_argument('--save', type=str,  default='EXP',help='path to save the model')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
 parser.add_argument('--train_portion', type=float, default=0.5, help='portion of training data')
@@ -189,19 +196,51 @@ def main():
     
     # iterate over stages
     for sp in range(len(num_to_keep)): 
-        # sp=2
+        # sp=0
         
         k_cnn = sum(1 for i in range(args.steps) for n in range(2+i))
           
         num_ops_cnn = sum(switches_normal_cnn[0])
+        
+        #k_cnn=14
+        #num_ops_cnn = 9
+        #alphas_normal[0][0]= float("-inf")
+        
+        #weights = F.softmax(alphas_normal, dim=0)
            
         alphas_normal = nn.Parameter(torch.FloatTensor(1e-3*np.random.randn(k_cnn, num_ops_cnn))) # vorher: k_cnn, num_ops_cnn
         alphas_reduce = nn.Parameter(torch.FloatTensor(1e-3*np.random.randn(k_cnn, num_ops_cnn))) # vorher: k_cnn, num_ops_cnn
-           
+        alphas_normal, alphas_reduce = Variable(alphas_normal, requires_grad=True), Variable(alphas_reduce, requires_grad=True)
+        
         k_rhn = sum(i for i in range(1, rnn_steps+1))             
         num_ops_rhn = sum(switches_rnn[0])
            
         alphas_rnn = nn.Parameter(torch.FloatTensor(1e-3*np.random.randn(k_rhn, num_ops_rhn)))
+        
+        
+        alphas_rnn[0][1]= float("-inf")
+        alphas_rnn[0][3]= float("-inf")
+        alphas_rnn[1][1]= float("-inf")
+        alphas_rnn[1][3]= float("-inf")
+        alphas_rnn[4][1]= float("-inf")
+        alphas_rnn[4][3]= float("-inf")
+        alphas_rnn = Variable(alphas_rnn, requires_grad=True)
+        alphas_rnn[0][1] = alphas_rnn[0][1].detach()
+        alphas_rnn[0][3]= alphas_rnn[0][3].detach()
+        alphas_rnn[1][1]= alphas_rnn[1][1].detach()
+        alphas_rnn[1][3] = alphas_rnn[1][3].detach()
+        alphas_rnn[4][1]= alphas_rnn[4][1].detach()
+        alphas_rnn[4][3] = alphas_rnn[4][3].detach()
+
+
+        switches_rnn[0][1] = False
+        switches_rnn[0][3] = False
+        switches_rnn[1][1] = False
+        switches_rnn[1][3] = False
+        switches_rnn[4][1] = False
+        switches_rnn[4][3] = False
+        
+        
         
        
         # different model for each stage, because after each stage operations are dropped (according to switches)
@@ -258,6 +297,7 @@ def main():
         scale_factor = 0.2
         
         for epoch in range(epochs):
+            # epoch=0
             
             train_start = time.strftime("%Y%m%d-%H%M")
    
@@ -269,16 +309,22 @@ def main():
             if epoch < eps_no_arch: 
                 model.p = float(drop_rate[sp]) * (epochs - epoch - 1) / epochs 
                 model.update_p()           
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
+                #train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
+                #train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False)
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=args.pdarts)
+
             else:
                 model.p = float(drop_rate[sp]) * np.exp(-(epoch - eps_no_arch) * scale_factor) 
                 model.update_p()  
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=True)
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=args.pdarts)
+                # model.arch_parameters()
+                # alphas_rnn
 
             # validation
             if args.validation == True:
                 if epoch % args.report_validation == 0:
                     valid_acc, valid_obj = infer(valid_object, model, criterion, args.batch_size, args.num_steps, args.report_freq)
+
                     logging.info('Valid_acc %f', valid_acc)
                     
                     valid_losses.append(valid_obj)

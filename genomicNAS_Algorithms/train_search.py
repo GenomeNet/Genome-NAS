@@ -23,7 +23,7 @@ import torch.utils
 import copy
 import gc
 #import model_search as one_shot_model
-import darts_tools.model_search as one_shot_model
+import model_search as one_shot_model
 
 from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
 
@@ -69,10 +69,10 @@ parser.add_argument('--clip', type=float, default=0.25, help='gradient clipping'
 parser.add_argument('--conv_clip', type=float, default=5, help='gradient clipping of convs')
 parser.add_argument('--rhn_clip', type=float, default=0.25, help='gradient clipping of lstms')
 
-parser.add_argument('--seq_len', type=int, default=200, help='sequence length')
+parser.add_argument('--seq_len', type=int, default=1000, help='sequence length')
 parser.add_argument('--weight_decay', type=float, default=3e-4, help='weight decay')
 parser.add_argument('--init_channels', type=int, default=8, help='num of init channels')
-parser.add_argument('--layers', type=int, default=3, help='total number of layers')
+parser.add_argument('--layers', type=int, default=6, help='total number of layers')
 parser.add_argument('--num_classes', type=int, default=4, help='num of output classes') 
 parser.add_argument('--steps', type=int, default=4, help='total number of Nodes')
 parser.add_argument('--multiplier', type=int, default=4, help='multiplier')
@@ -186,9 +186,9 @@ num_ops_rhn = sum(switches_rnn[0])
        
 alphas_rnn = nn.Parameter(torch.FloatTensor(1e-3*np.random.randn(k_rhn, num_ops_rhn)))
 
-multiplier, stem_multiplier = 4,3
+multiplier, stem_multiplier = 4, 3
 
-num_motifs=300
+#num_motifs=300
 # import math
 
 # alphas_rnn[(1, 3, 8, 14, 18, 20),3]= -1000
@@ -222,8 +222,6 @@ logging.info('initial genotype:')
 #else:
     
 parallel_model = model.to(device)
-
-
         
 #optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wdecay)
 

@@ -67,6 +67,8 @@ parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloa
 parser.add_argument('--num_files', type=int, default=3, help='number of files for data')
 parser.add_argument('--next_character_prediction', type=bool, default=True, help='task of model')
 parser.add_argument('--one_clip', type=bool, default=True)
+parser.add_argument('--pdarts', type=bool, default=True)
+
 parser.add_argument('--clip', type=float, default=5, help='gradient clipping')
 parser.add_argument('--conv_clip', type=float, default=5, help='gradient clipping of convs')
 parser.add_argument('--rhn_clip', type=float, default=0.25, help='gradient clipping of lstms')
@@ -95,6 +97,8 @@ parser.add_argument('--beta', type=float, default=1e-3,
                     help='beta slowness regularization applied on RNN activiation (beta = 0 means no regularization)')
 parser.add_argument('--save', type=str,  default='EXP',help='path to save the model')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
+parser.add_argument('--unrolled', action='store_true', default=False, help='use one-step unrolled validation loss')
+
 parser.add_argument('--train_portion', type=float, default=0.5, help='portion of training data')
 parser.add_argument('--arch_learning_rate', type=float, default=6e-4, help='learning rate for arch encoding')
 parser.add_argument('--arch_weight_decay', type=float, default=1e-3, help='weight decay for arch encoding')
@@ -190,7 +194,7 @@ def main():
     
     # iterate over stages
     for sp in range(len(num_to_keep)): 
-        # sp=6
+        # sp=1
        
         
         if sp == 0:
@@ -216,6 +220,18 @@ def main():
         if sp > 0:
             
             old_dict = model.state_dict()
+            
+            #keep_weights = {k: v for k, v in old_dict.items() if 'm_ops_new' in k}
+
+            #ks =[]
+            #vs = []
+            #for k, v in old_dict.items():
+            #    if 'm_ops_new' in k:
+            #        print(k)
+                    # ks.append(k)
+                    # vs.append(v)
+                
+            
           
             new_reduce_arch = nn.Parameter(torch.FloatTensor(new_reduce_arch))
             new_normal_arch = nn.Parameter(torch.FloatTensor(new_normal_arch))
@@ -293,7 +309,7 @@ def main():
         scale_factor = 0.2
         
         for epoch in range(epochs):
-            
+            # epoch=0
             train_start = time.strftime("%Y%m%d-%H%M")
 
             
@@ -304,16 +320,19 @@ def main():
             # training
             if epoch < eps_no_arch: 
                 model.p = float(drop_rate[sp]) * (epochs - epoch - 1) / epochs 
-                model.update_p()           
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=False)
+                model.update_p()       
+                # train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False)
+
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=args.pdarts)
             else:
                 model.p = float(drop_rate[sp]) * np.exp(-(epoch - eps_no_arch) * scale_factor) 
                 model.update_p()  
-                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, lr, epoch, args.num_steps, clip_params, args.one_clip, args.report_freq, args.beta, train_arch=True)
+                train_acc, train_obj = train(train_object, valid_object, model, rhn, conv, criterion, optimizer, optimizer_a, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=args.pdarts)
             
             
             if args.validation == True:
                 if epoch % args.report_validation == 0:
+
                     valid_acc, valid_obj = infer(valid_object, model, criterion, args.batch_size, args.num_steps, args.report_freq)
                     logging.info('Valid_acc %f', valid_acc)
                     
