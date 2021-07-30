@@ -40,13 +40,13 @@ from torch.utils.data import Dataset, DataLoader
 
 import numpy as np
 
-train_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small.pkl'
-train_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small.pkl'
-valid_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_val.pkl'
-valid_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small_val.pkl'
-test_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_test.pkl'
-test_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl'
-batch_size = 2
+#train_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small.pkl'
+#train_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small.pkl'
+#valid_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_val.pkl'
+#valid_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small_val.pkl'
+#test_input_directory = '/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_test.pkl'
+#test_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl'
+#batch_size = 2
 
 def data_preprocessing(train_input_directory, valid_input_directory, test_input_directory, train_target_directory, valid_target_directory, test_target_directory,  batch_size):
     
