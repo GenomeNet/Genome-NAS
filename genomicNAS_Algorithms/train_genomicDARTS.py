@@ -315,15 +315,12 @@ def main():
                 acc = overall_acc(labels, predictions, args.task)
                 logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
                 train_acc.append(acc)
-
-
             else:
                 f1 = overall_f1(labels, predictions, args.task)
                 logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
                 train_acc.append(f1)
 
      
-      
             #all_labels_train.append(labels)
             #all_predictions_train.append(predictions)
             train_losses.append(train_loss)
@@ -334,8 +331,8 @@ def main():
             # validation
             if args.validation == True:
                 if epoch % args.report_validation == 0:
-                    labels, predictions, valid_obj = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
-                    logging.info('Valid_acc %f', valid_acc)
+                    labels, predictions, valid_loss = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
+                    # logging.info('Valid_acc %f', valid_acc)
                     
                     labels = np.concatenate(labels)
                     predictions = np.concatenate(predictions)
@@ -371,7 +368,7 @@ def main():
   
     trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
     np.save(trainloss_file, train_losses)
-    acc_train_file = '{}-labels_train-{}'.format(args.save, train_start)
+    acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
     np.save(acc_train_file, train_acc)
     #predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
     #np.save(predictions__train_file, all_predictions_train)
@@ -383,142 +380,13 @@ def main():
     # safe valid data
     validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
     np.save(validloss_file, valid_losses)
-    acc_valid_file = '{}-labels_valid-{}'.format(args.save, train_start)
+    acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
     np.save(acc_valid_file, valid_acc)
     #predictions__valid_file = '{}-predictions_valid-{}'.format(args.save, train_start)
     #np.save(predictions__valid_file, all_predictions_valid)
     
 
 
-
-
-#def train(epoch):
-    
-#    objs = utils.AvgrageMeter()
-#    top1 = utils.AvgrageMeter()
-#    top5 = utils.AvgrageMeter()
-#    total_loss = 0
-#    start_time = time.time()
- 
-    
-#    for step, (input, target) in enumerate(train_object):
-
-#        if step > args.num_steps:
-#            break
-        
-#        s_id = 0
-        # input, labels for model parameter updates
-#        data, targets = input, target
-        
-        # input, labels for arch parameter updates
-#        data_valid, targets_valid = next(iter(valid_object))
-        
-#        model.train()
-
-        # get correct shape of labels
-#        targets = torch.max(targets, 1)[1]
-#        targets_valid = torch.max(targets_valid, 1)[1]  
-        
-        # for stateless RHN, reset hidden state after each epoch
-        #hidden[s_id] = repackage_hidden(hidden[s_id])
-        #hidden_valid[s_id] = repackage_hidden(hidden_valid[s_id])
-        
-#        hidden = model.init_hidden(args.batch_size)
-#        hidden_valid = model.init_hidden(args.batch_size)
-
-
-        
-#        cur_data, cur_data_valid = data.transpose(1, 2).float().to(device), data_valid.transpose(1, 2).float().to(device)
-#        cur_targets, cur_targets_valid = targets.to(device), targets_valid.to(device)
-
-
-
-#        hidden_valid, grad_norm = architect.step( 
-#                hidden, cur_data, cur_targets,
-#                hidden_valid, cur_data_valid, cur_targets_valid,
-#                optimizer,
-#                args.unrolled)
-
-#        optimizer.zero_grad()
-        # hidden[s_id] = repackage_hidden(hidden[s_id])
-#        hidden = model.init_hidden(args.batch_size)
-
-
-#        log_prob, hidden, rnn_hs, dropped_rnn_hs, probs = parallel_model(cur_data, hidden, return_h=True)
-      
-#        criterion = nn.CrossEntropyLoss()
-
-#        raw_loss = criterion(log_prob, cur_targets)
-
-#        loss = raw_loss
-       
-        # Temporal Activation Regularization (slowness)
-#        loss = loss + sum(args.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
-#        total_loss += raw_loss.data
-#        loss.backward()
-      
-
-#        gc.collect()
-
-        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs.
-#        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-#        optimizer.step()
-        
-#        prec1,prec2 = utils.accuracy(log_prob, cur_targets, topk=(1,2)) 
-        
-#        n = input.size(0)
-        
-#        objs.update(loss.data, n)
-       
-#        top1.update(prec1.data, n) 
-
-        
-#        if step % report_freq == 0 and step > 0:
-        
-#            logging.info('| step {:3d} | train obj {:5.2f} | '
-#                'train acc {:8.2f}'.format(step,
-#                                           objs.avg, top1.avg))
-          
-
-#    logging.info('{} epoch done   '.format(epoch) + str(parallel_model.genotype()))
-
-#    return top1.avg, objs.avg
-
-
-#def evaluate(data_source, batch_size=10):
-#    objs = utils.AvgrageMeter()
-#    top1 = utils.AvgrageMeter()
-#    top5 = utils.AvgrageMeter()
-  
-#    model.eval()
-#    total_loss = 0
-#    hidden = model.init_hidden(batch_size)
-    
-#    for step, (input, target) in enumerate(valid_data):
-
-#        data, targets = input, target
-        
-#        targets = torch.max(targets, 1)[1]
-
-
-#        log_prob, hidden = parallel_model(data, hidden)
-#        criterion = nn.CrossEntropyLoss()
-
-#        loss = criterion(log_prob, targets)
-        
-#        prec1, prec5 = utils.accuracy(logits, target, topk=(1, 2))
-#        n = input.size(0)
-        
-#        objs.update(loss.data, n)
-#        top1.update(prec1.data, n)
-#        top2.update(prec5.data, n)
-        
-#        if step % args.log_interval == 0:
-#            logging.info('valid %03d %e %f %f', step, objs.avg, top1.avg, top2.avg)
-#        hidden = repackage_hidden(hidden)
-        
-#    return top1.avg, objs.avg
-    
   
 
 if __name__ == '__main__':
