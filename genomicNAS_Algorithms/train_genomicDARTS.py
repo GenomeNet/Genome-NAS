@@ -75,7 +75,7 @@ parser.add_argument('--valid_target_directory', type=str, default='/home/amadeu/
 parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/inputs_small_test.pkl', help='directory of test data')
 parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test data')
 
-parser.add_argument('--task', type=str, default='next_character_prediction', help='defines the task')#TF_bindings
+parser.add_argument('--task', type=str, default='TF_bindings', help='defines the task')#TF_bindings
 
 parser.add_argument('--validation', type=bool, default=True)
 parser.add_argument('--report_validation', type=int, default=2, help='validation epochs') 
@@ -86,10 +86,10 @@ parser.add_argument('--clip', type=float, default=0.25, help='gradient clipping'
 parser.add_argument('--conv_clip', type=float, default=5, help='gradient clipping of convs')
 parser.add_argument('--rhn_clip', type=float, default=0.25, help='gradient clipping of lstms')
 
-parser.add_argument('--seq_size', type=int, default=200, help='sequence length') # 1000
+parser.add_argument('--seq_size', type=int, default=1000, help='sequence length') # 1000
 parser.add_argument('--weight_decay', type=float, default=3e-4, help='weight decay')
 parser.add_argument('--init_channels', type=int, default=8, help='num of init channels')
-parser.add_argument('--layers', type=int, default=3, help='total number of layers')
+parser.add_argument('--layers', type=int, default=6, help='total number of layers')
 # parser.add_argument('--num_classes', type=int, default=919, help='num of output classes') 
 parser.add_argument('--steps', type=int, default=4, help='total number of Nodes')
 #parser.add_argument('--multiplier', type=int, default=4, help='multiplier')
@@ -279,7 +279,7 @@ def main():
     #eps_no_arch = eps_no_archs[sp]
     scale_factor = 0.2
     
-    architect = Architect(model, args)
+    architect = Architect(model, criterion, args)
 
     train_losses = []
     valid_losses = []
