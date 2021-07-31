@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 25 19:16:05 2021
+Created on Sat Jul 31 07:51:45 2021
 
 @author: amadeu
 """
@@ -48,41 +48,43 @@ import numpy as np
 #test_target_directory = '/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl'
 #batch_size = 2
 
-def data_preprocessing(train_input_directory, valid_input_directory, test_input_directory, train_target_directory, valid_target_directory, test_target_directory,  batch_size):
+def data_preprocessing(train_directory, valid_directory, test_directory, batch_size):
     
     ### falls auf Cluster ####
     # def data_preprocessing(train_directory, valid_directory, batch_size):
     # muss also auch argparser in train_genomicDARTS.py ändern !!!!!!!!!!!
     # train_directory = '/home/amadeu/Desktop/GenomNet_MA/data/train.mat'
-    # data_dict = mat73.loadmat('train.mat')
-    # inputs_train = data_dict["trainxdata"]
-    # targets_train = data_dict["traindata"]
+    data_dict_train = mat73.loadmat(train_directory)
+    inputs_train = data_dict_train["trainxdata"]
+    targets_train = data_dict_train["traindata"]
     # valid_directory = '/home/amadeu/Desktop/GenomNet_MA/data/valid.mat'
-    # inputs_val = data_dict["validxdata"]
-    # targets_val = data_dict["validdata"]
+    data_dict_val = mat73.loadmat(valid_directory)
+    inputs_val = data_dict_val["validxdata"]
+    targets_val = data_dict_val["validdata"]
     # test_directory = '/home/amadeu/Desktop/GenomNet_MA/data/test.mat'
-    # inputs_test = data_dict["testxdata"]
-    # targets_test = data_dict["testdata"]
+    data_dict_test = mat73.loadmat(test_directory)
+    inputs_test = data_dict_test["testxdata"]
+    targets_test = data_dict_test["testdata"]
   
     
     ### falls auf meinem laptop ###
-    a_file = open(train_input_directory, "rb")
-    inputs_train = pickle.load(a_file)
+    #a_file = open(train_input_directory, "rb")
+    #inputs_train = pickle.load(a_file)
 
-    b_file = open(train_target_directory, "rb")
-    targets_train = pickle.load(b_file)
+    #b_file = open(train_target_directory, "rb")
+    #targets_train = pickle.load(b_file)
     
-    c_file = open(valid_input_directory, "rb")
-    inputs_val = pickle.load(c_file)
+    #c_file = open(valid_input_directory, "rb")
+    #inputs_val = pickle.load(c_file)
 
-    d_file = open(valid_target_directory, "rb")
-    targets_val = pickle.load(d_file)
+    #d_file = open(valid_target_directory, "rb")
+    #targets_val = pickle.load(d_file)
     
-    e_file = open(test_input_directory, "rb")
-    inputs_test = pickle.load(e_file)
+    #e_file = open(test_input_directory, "rb")
+    #inputs_test = pickle.load(e_file)
 
-    f_file = open(test_target_directory, "rb")
-    targets_test = pickle.load(f_file)
+    #f_file = open(test_target_directory, "rb")
+    #targets_test = pickle.load(f_file)
     
     
     inputs_train, targets_train = torch.Tensor(inputs_train), torch.Tensor(targets_train)
