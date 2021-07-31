@@ -141,9 +141,9 @@ class RNNModelSearch(RNNModel):
         return model_new
 
          
-    def _loss(self, hidden, input, target):
+    def _loss(self, hidden, input, target, criterion):
       log_prob, hidden_next = self(input, hidden, return_h=False) 
-      criterion = nn.CrossEntropyLoss()
+      # criterion = nn.CrossEntropyLoss()
       loss = criterion(log_prob, target)
       return loss, hidden_next
   
