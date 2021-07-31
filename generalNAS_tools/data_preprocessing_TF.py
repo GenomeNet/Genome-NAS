@@ -58,11 +58,11 @@ def data_preprocessing(train_directory, valid_directory, test_directory, batch_s
     inputs_train = data_dict_train["trainxdata"]
     targets_train = data_dict_train["traindata"]
     # valid_directory = '/home/amadeu/Desktop/GenomNet_MA/data/valid.mat'
-    data_dict_val = mat73.loadmat(valid_directory)
+    data_dict_val = scipy.io.loadmat(valid_directory)
     inputs_val = data_dict_val["validxdata"]
     targets_val = data_dict_val["validdata"]
     # test_directory = '/home/amadeu/Desktop/GenomNet_MA/data/test.mat'
-    data_dict_test = mat73.loadmat(test_directory)
+    data_dict_test = scipy.io.loadmat(test_directory)
     inputs_test = data_dict_test["testxdata"]
     targets_test = data_dict_test["testdata"]
   
