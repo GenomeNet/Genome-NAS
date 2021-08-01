@@ -149,9 +149,9 @@ def train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, opti
         
         labels.append(target)
         if task == "next_character_prediction":
-            predictions.append(scores(logits).detach().numpy())
+            predictions.append(scores(logits).detach().cpu().numpy())
         else:#if args.task == "TF_bindings"::
-            predictions.append(logits.detach().numpy())
+            predictions.append(logits.detach().cpu().numpy())
        
         if step % report_freq == 0 and step > 0:
         
@@ -202,9 +202,9 @@ def infer(valid_queue, model, criterion, batch_size, num_steps, report_freq, tas
         objs.update(loss.data, batch_size)
         labels.append(target)
         if task == "next_character_prediction":
-            predictions.append(scores(logits).detach().numpy())
+            predictions.append(scores(logits).detach().cpu().numpy())
         else:#if args.task == "TF_bindings"::
-            predictions.append(logits.detach().numpy())
+            predictions.append(logits.detach().cpu().numpy())
 
         if step % report_freq == 0:
             #logging.info('| step {:3d} | val obj {:5.2f} | '
