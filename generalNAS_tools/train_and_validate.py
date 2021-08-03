@@ -48,6 +48,8 @@ def train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, opti
     # train_queue = train_object
     scores = nn.Softmax()
 
+    # labels = torch.empty(2,919)
+    # predictions = torch.empty(2,919)
     labels = []
     predictions = []
          
@@ -146,11 +148,15 @@ def train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, opti
         
 
         
+        #labels = torch.cat((labels,target),0)
+        labels.append(target.detach().cpu().numpy())
         
-        labels.append(target)
         if task == "next_character_prediction":
+            # predictions = torch.cat((predictions, scores(logits)), 0)
             predictions.append(scores(logits).detach().cpu().numpy())
-        else:#if args.task == "TF_bindings"::
+        else: #if args.task == "TF_bindings"::
+            # predictions = torch.cat((predictions, logits), 0)
+
             predictions.append(logits.detach().cpu().numpy())
        
         if step % report_freq == 0 and step > 0:
@@ -200,7 +206,7 @@ def infer(valid_queue, model, criterion, batch_size, num_steps, report_freq, tas
         # prec1, prec5 = utils.accuracy(logits, target, topk=(1, 2))
         
         objs.update(loss.data, batch_size)
-        labels.append(target)
+        labels.append(target.detach().cpu().numpy())
         if task == "next_character_prediction":
             predictions.append(scores(logits).detach().cpu().numpy())
         else:#if args.task == "TF_bindings"::
