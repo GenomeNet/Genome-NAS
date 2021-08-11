@@ -32,12 +32,12 @@ from torch.utils.data import Dataset,DataLoader
 
 
 class NN_class(nn.Module):
-    def __init__(self, num_classes, num_motifs, batch_size, seq_size, task):
+    def __init__(self, num_classes, batch_size, seq_size, task):
         super(NN_class,self).__init__()
         self.num_classes = num_classes
-        self.num_motifs = num_motifs
+        self.num_motifs = 320
         self.batch_size = batch_size
-        self.conv1d = nn.Conv1d(4,num_motifs,kernel_size=26, stride=1) # with seq_len= 1000 kernel_size=26; seq_len=150 kernelsize=9
+        self.conv1d = nn.Conv1d(4, self.num_motifs,kernel_size=26, stride=1) # with seq_len= 1000 kernel_size=26; seq_len=150 kernelsize=9
         self.seq_size = seq_size
         
         self.relu = nn.ReLU(inplace=True)
@@ -46,16 +46,15 @@ class NN_class(nn.Module):
         
 
         
-        self.lstm = nn.LSTM(num_motifs, #
-                            num_motifs,
-                            #batch_first=True,
+        self.lstm = nn.LSTM(self.num_motifs, #
+                            self.num_motifs,
                             bidirectional=True)
        
         
         aux_num = (((seq_size-26)+1)-13)/13+1
         self.dropout_2 = nn.Dropout(p=0.5)
         self.num_neurons = math.floor(aux_num)
-        self.fc1 = nn.Linear(num_motifs*2*self.num_neurons,925) # seq_len 1000 75neuronen; seq_len 150 35neuronen
+        self.fc1 = nn.Linear(self.num_motifs*2*self.num_neurons,925) # seq_len 1000 75neuronen; seq_len 150 35neuronen
         self.fc2 = nn.Linear(925, num_classes)
         
         if task == "TF_bindings":
