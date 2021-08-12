@@ -62,12 +62,12 @@ parser.add_argument('--batch_size', type=int, default=2, help='batch size') # 10
 parser.add_argument('--seq_size', type=int, default=1000, help='sequence size') # 200 oder 1000
 parser.add_argument('--learning_rate', type=float, default=0.001, help='init learning rate') # default RMSprob
 parser.add_argument('--epochs', type=int, default=10, help='num of training epochs') # min 60 but until convergence
-parser.add_argument('--test_epochs', type=int, default=1, help='num of testing epochs')
+# parser.add_argument('--test_epochs', type=int, default=1, help='num of testing epochs')
 
 # parser.add_argument('--num_classes', type=int, default=4, help='num of target classes')
 parser.add_argument('--task', type=str, default='TF_bindings', help='defines the task')#TF_bindings
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
-parser.add_argument('--test_num_steps', type=int, default=2, help='number of iterations per testing epoch')
+# parser.add_argument('--test_num_steps', type=int, default=2, help='number of iterations per testing epoch')
 
 parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloads/genomicData/validation', help='directory of validation data')
 parser.add_argument('--train_directory', type=str, default='/home/amadeu/Downloads/genomicData/train', help='directory of training data')
@@ -85,7 +85,7 @@ parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/De
 parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test target data')
 
 # parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
-parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
+parser.add_argument('--model', type=str, default='DeepSEA', help='path to save the model')
 parser.add_argument('--save', type=str,  default='bas',
                     help='path to save the labels and predicitons')
 parser.add_argument('--model_path', type=str,  default='./danQ_net.pth',
@@ -119,6 +119,7 @@ def main():
   
   
   if (args.task == "next_character_prediction"):
+      
       import generalNAS_tools.data_preprocessing_new as dp
       
       train_queue, valid_queue, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
@@ -162,7 +163,6 @@ def main():
           import baseline_models.models.DanQ_model as model
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
           optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
-
           
       if (args.model == "DeepSEA"):
           
@@ -171,11 +171,6 @@ def main():
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
           optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
 
-  
-  # '/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt'
-  # '/home/ascheppa/miniconda2/envs/darts/cnn/data2/trainset.txt'
-  # train_queue, valid_queue, num_classes = dp.data_preprocessing(data_file =args.data, 
-  #        seq_size = args.seq_size, representation = 'onehot', model_type = 'CNN', batch_size=args.batch_size)
   
   train_losses = []
   valid_losses = []
@@ -282,8 +277,24 @@ def main():
           valid_losses.append(valid_loss)
         
          
-     
-      
+  torch.save(model, args.model_path)
+
+  trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
+  np.save(trainloss_file, train_losses)
+  acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
+  np.save(acc_train_file, train_acc)
+  # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
+  # np.save(predictions__train_file, all_predictions_train)
+
+  time_file = '{}-time-{}'.format(args.save, train_start)
+  np.save(time_file, time_per_epoch)
+    
+  # safe valid data
+  validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
+  np.save(validloss_file, valid_losses)
+  acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
+  np.save(acc_valid_file, valid_acc)  
+
   
   #### test ### 
   test_losses = []
@@ -328,11 +339,11 @@ def main():
               # label = torch.max(label, 1)[1]
           #logits = model(input.float()) #, (state_h, state_c))
             
-          labels.append(label.detach().numpy())
+          labels.append(label.detach().cpu().numpy())
           if args.task == "next_character_prediction":
-              predictions.append(scores(logits).detach().numpy())
+              predictions.append(scores(logits).detach().cpu().numpy())
           else:
-              predictions.append(logits.detach().numpy())
+              predictions.append(logits.detach().cpu().numpy())
                 
           objs.update(loss.data, batch_size)
     
@@ -340,7 +351,7 @@ def main():
   labels = np.concatenate(labels)
   predictions = np.concatenate(predictions)
       
-  test_losses.append(test_loss)
+  test_losses.append(objs.avg)
   all_labels_test.append(labels)
   all_predictions_test.append(predictions)
       
@@ -389,11 +400,11 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps):
 
         loss = criterion(logits, label)#.long()) 
      
-        labels.append(label.detach().numpy())
+        labels.append(label.detach().cpu().numpy())
         if args.task == "next_character_prediction":
-            predictions.append(scores(logits).detach().numpy())
+            predictions.append(scores(logits).detach().cpu().numpy())
         else:#if args.task == "TF_bindings"::
-            predictions.append(logits.detach().numpy())
+            predictions.append(logits.detach().cpu().numpy())
 
         loss.backward()
         optimizer.step()
@@ -444,11 +455,11 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps):
                 # label = torch.max(label, 1)[1]
             #logits = model(input.float()) #, (state_h, state_c))
             
-            labels.append(label.detach().numpy())
+            labels.append(label.detach().cpu().numpy())
             if args.task == "next_character_prediction":
-                predictions.append(scores(logits).detach().numpy())
+                predictions.append(scores(logits).detach().cpu().numpy())
             else:
-                predictions.append(logits.detach().numpy())
+                predictions.append(logits.detach().cpu().numpy())
                 
             objs.update(loss.data, batch_size)
   
