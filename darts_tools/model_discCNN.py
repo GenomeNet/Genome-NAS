@@ -34,7 +34,7 @@ import torch.autograd.profiler as profiler
 
 
 
-# import cnn_eval
+import darts_tools.cnn_eval as cnn_eval
 
 INITRANGE = 0.04
 
@@ -117,7 +117,6 @@ class CNN_Cell_search(nn.Module):
         # _steps, switches = 4, switches_normal_cnn
         # state_idxs = get_state_ind(_steps, switches)
         
-        
         self.w_pos = get_w_pos(self._steps, switches)
         # w_pos = get_w_pos(_steps, switches)
                 
@@ -134,7 +133,6 @@ class CNN_Cell_search(nn.Module):
                 if switches[switch_count].count(False) != len(switches[switch_count]):
                     
                     stride = 2 if reduction and j < 2 else 1
-                    
                     
                     if (reduction==False) or j >= 2:
                         stride=1
@@ -230,16 +228,16 @@ class DARTSCell(nn.Module):
     
     T, B = inputs.size(0), inputs.size(1) # 10,2
 
-    #if self.training:
-        
-    #  x_mask = mask2d(B, inputs.size(2), keep_prob=1.-self.dropoutx) 
+    if self.training:
+     
+      x_mask = mask2d(B, inputs.size(2), keep_prob=1.-self.dropoutx) 
 
-    #  h_mask = mask2d(B, hidden.size(2), keep_prob=1.-self.dropouth)
+      h_mask = mask2d(B, hidden.size(2), keep_prob=1.-self.dropouth)
     
 
-    #else:
+    else:
         
-    x_mask = h_mask = None
+      x_mask = h_mask = None
       
     hidden = hidden[0]
 
@@ -256,10 +254,10 @@ class DARTSCell(nn.Module):
 
   def _compute_init_state(self, x, h_prev, x_mask, h_mask):
 
-    #if self.training:
-    # xh_prev = torch.cat([x * x_mask, h_prev * h_mask], dim=-1) # entlang der channels zusammenfügen
-    #else:
-    xh_prev = torch.cat([x, h_prev], dim=-1)
+    if self.training:
+      xh_prev = torch.cat([x * x_mask, h_prev * h_mask], dim=-1) # entlang der channels zusammenfügen
+    else:
+      xh_prev = torch.cat([x, h_prev], dim=-1)
       
     c0, h0 = torch.split(xh_prev.mm(self._W0), self.nhid, dim=-1) 
     # c0, h0 = torch.split(xh_prev.mm(_W0), nhid, dim=-1) 
@@ -354,7 +352,7 @@ class RNNModel(nn.Module):
             nn.BatchNorm1d(C_curr)
         )
     
-        C_prev_prev, C_prev, C_curr = C_curr, C_curr, C
+        C_prev_prev, C_prev, C_curr = C_curr, C_curr, C #24,24,8
         self.cells = nn.ModuleList()
         reduction_prev = False
         
@@ -374,7 +372,6 @@ class RNNModel(nn.Module):
                 
                 C_curr *= 2
                 reduction = True
-                switches = self.switches_reduce
                 
                 if (i==5):
                     reduction_high=True
@@ -382,7 +379,15 @@ class RNNModel(nn.Module):
                     #stride=3
                 else:
                     reduction_high=False
-                    num_neurons = round(num_neurons/2)#int(math.ceil(num_neurons/2))
+                    num_neurons = round(num_neurons/2) #int(math.ceil(num_neurons/2))
+                    
+                if search == True:
+                    switches = self.switches_reduce
+
+                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high) 
+                else:
+                    cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high)
+
                 #stride=2
             #if i in [layers//3, 2*layers//3]:
             #    C_curr *= 2
@@ -392,14 +397,11 @@ class RNNModel(nn.Module):
             else:
                 reduction = reduction_high = False
                 # reduction = False
-                switches = self.switches_normal
-                
-            if search == True:
-                
-                cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high) 
-            else:
-                
-                cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high) 
+                if search == True:
+                    switches = self.switches_normal
+                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high) 
+                else:
+                    cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high) 
 
               
             reduction_prev = reduction
@@ -505,7 +507,6 @@ class RNNModel(nn.Module):
                         weights = F.softmax(self.alphas_normal, dim=-1)
                 s0, s1 = s1, cell(s0, s1, weights)
 
-                
             except: # when evaluating final architecture
                 s0, s1 = s1, cell(s0, s1, self.drop_path_prob)  
                 
@@ -544,12 +545,13 @@ class RNNModel(nn.Module):
         outputs.append(output)
         
         output = output.permute(1,0,2)
-                
+        #print(x.shape) # [250, 2, 128]
         # flatten the RNN output
         x = torch.flatten(output, start_dim= 1) 
         
         x = self.dropout_lin(x)
     
+        #print(x.shape) # [2,32000]
         # linear layer
         x = self.decoder(x) 
         
