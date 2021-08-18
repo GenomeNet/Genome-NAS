@@ -6,8 +6,6 @@ Created on Tue Jul 13 12:33:30 2021
 @author: amadeu
 """
 
-
-
 import os
 import sys
 import time
@@ -51,6 +49,7 @@ from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerCla
 
 import matplotlib.pyplot as plt
 
+
 # from pytorchtools import EarlyStopping
 
 
@@ -85,10 +84,12 @@ parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/De
 parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test target data')
 
 # parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
-parser.add_argument('--model', type=str, default='DeepSEA', help='path to save the model')
+parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
 parser.add_argument('--save', type=str,  default='bas',
+                    help='name to save the labels and predicitons')
+parser.add_argument('--save_dir', type=str,  default='test_danQ',
                     help='path to save the labels and predicitons')
-parser.add_argument('--model_path', type=str,  default='./danQ_net.pth',
+parser.add_argument('--model_path', type=str,  default='test_danQ/danQ_net.pth',
                     help='path to save the trained model')
 parser.add_argument('--seed', type=int, default=2, help='random seed')
 parser.add_argument('--grad_clip', type=float, default=5, help='gradient clipping')
@@ -98,7 +99,7 @@ parser.add_argument('--patience', type=int, default=5, help='how many epochs wit
 args = parser.parse_args()
 
 
-args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
+#args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
 log_format = '%(asctime)s %(message)s'
@@ -158,16 +159,21 @@ def main():
       
       criterion = nn.BCELoss().to(device)
 
+
       if (args.model == "DanQ"):
           
           import baseline_models.models.DanQ_model as model
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
-          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
+          #import baseline_models.models.DanQ_original as model
+          #model = model.DanQ(args.seq_size, num_classes).to(device)
+
+          #optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
+
+          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate, alpha=0.9)
           
       if (args.model == "DeepSEA"):
           
           import baseline_models.models.DeepSea as model
-
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
           optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
 
@@ -202,7 +208,7 @@ def main():
 
       else:
           f1 = overall_f1(labels, predictions, args.task)
-          logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
+          logging.info('| epoch {:3d} | train f1-score {:5.4f}'.format(epoch, f1))
           train_acc.append(f1)
           
       # np.argmax(predictions, axis=1)
@@ -238,7 +244,7 @@ def main():
           else:
               f1 = overall_f1(labels, predictions, args.task)
               logging.info('| epoch {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
-              logging.info('| epoch {:3d} | val loss {:5.2f}'.format(epoch, valid_loss))
+              logging.info('| epoch {:3d} | val loss {:5.4f}'.format(epoch, valid_loss))
 
               valid_acc.append(f1)
            
@@ -248,28 +254,31 @@ def main():
                   cnt = 0
               else:
                   cnt += 1
+              print(cnt)
                   
               if cnt == args.patience:
                   
                   valid_losses.append(valid_loss)
                   torch.save(model, args.model_path)
-  
-                  trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-                  np.save(trainloss_file, train_losses)
-                  acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
-                  np.save(acc_train_file, train_acc)
+                  
+                  trainloss_file = 'train_loss-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+               
+                  acc_train_file = 'acc_train-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+
                   # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
                   # np.save(predictions__train_file, all_predictions_train)
   
-                  time_file = '{}-time-{}'.format(args.save, train_start)
-                  np.save(time_file, time_per_epoch)
-      
+                  time_file = 'time-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
 
                   # safe valid data
-                  validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-                  np.save(validloss_file, valid_losses)
-                  acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
-                  np.save(acc_valid_file, valid_acc)
+                  validloss_file = 'valid_loss-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+
+                  acc_valid_file = 'acc_valid-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
                   break
                     
                   
@@ -279,21 +288,24 @@ def main():
          
   torch.save(model, args.model_path)
 
-  trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-  np.save(trainloss_file, train_losses)
-  acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
-  np.save(acc_train_file, train_acc)
+  trainloss_file = 'train_loss-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+ 
+  acc_train_file = 'acc_train-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+  
   # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
   # np.save(predictions__train_file, all_predictions_train)
 
-  time_file = '{}-time-{}'.format(args.save, train_start)
-  np.save(time_file, time_per_epoch)
-    
+  time_file = 'time-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
+  
   # safe valid data
-  validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-  np.save(validloss_file, valid_losses)
-  acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
-  np.save(acc_valid_file, valid_acc)  
+  validloss_file = 'valid_loss-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+
+  acc_valid_file = 'acc_valid-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
 
   
   #### test ### 
@@ -356,12 +368,14 @@ def main():
   all_predictions_test.append(predictions)
       
 
-  testloss_file = '{}-test_loss-{}'.format(args.save, train_start)
-  np.save(testloss_file, test_losses)
-  labels_test_file = '{}-labels_test-{}'.format(args.save, train_start)
-  np.save(labels_test_file, all_labels_test)
-  predictions_test_file = '{}-predictions_test-{}'.format(args.save, train_start)
-  np.save(predictions_test_file, all_predictions_test)
+  testloss_file = 'test_loss-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, testloss_file), test_losses)
+
+  labels_test_file = 'labels_test-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, labels_test_file), all_labels_test)
+
+  predictions_test_file = 'predictions_test-{}'.format(args.save)
+  np.save(os.path.join(args.save_dir, predictions_test_file), all_predictions_test)
       
 
       
