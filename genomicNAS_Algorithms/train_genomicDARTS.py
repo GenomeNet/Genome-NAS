@@ -22,7 +22,9 @@ import torch.utils
 
 import copy
 import gc
-import darts_tools.model_search as one_shot_model
+# import darts_tools.model_search as one_shot_model
+import model_search as one_shot_model
+
 from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT, Genotype
 
 #import generalNAS_tools.data_preprocessing_new as dp
@@ -44,8 +46,6 @@ from darts_tools.discard_operations import discard_cnn_ops, discard_rhn_ops
 
 from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
 
-from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
-
 
 
 
@@ -59,8 +59,8 @@ parser.add_argument('--rhn_weight_decay', type=float, default=5e-7, help='weight
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--learning_rate', type=float, default=0.025, help='init learning rate')
 parser.add_argument('--learning_rate_min', type=float, default=0.001, help='min learning rate')
-parser.add_argument('--lr', type=float, default=20,
-                    help='initial learning rate')
+#parser.add_argument('--lr', type=float, default=20,
+#                    help='initial learning rate')
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
 parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloads/genomicData/validation', help='directory of validation data')
 parser.add_argument('--train_directory', type=str, default='/home/amadeu/Downloads/genomicData/train', help='directory of training data')
@@ -112,8 +112,6 @@ parser.add_argument('--cuda', action='store_false',
                     help='use CUDA')
 parser.add_argument('--report_freq', type=float, default=2, help='report frequency')
 
-parser.add_argument('--save', type=str,  default='EXP',
-                    help='path to save the final model')
 parser.add_argument('--alpha', type=float, default=0,
                     help='alpha L2 regularization on RNN activation (alpha = 0 means no regularization)')
 parser.add_argument('--beta', type=float, default=1e-3,
@@ -122,6 +120,11 @@ parser.add_argument('--wdecay', type=float, default=5e-7,
                     help='weight decay applied to all weights')
 parser.add_argument('--continue_train', action='store_true',
                     help='continue train from a checkpoint')
+
+parser.add_argument('--save', type=str,  default='search',
+                    help='name to save the labels and predicitons')
+parser.add_argument('--save_dir', type=str,  default='test_search',
+                    help='path to save the labels and predicitons')
 
 parser.add_argument('--max_seq_len_delta', type=int, default=20,
                     help='max sequence length')
@@ -137,7 +140,7 @@ parser.add_argument('--note', type=str, default='try', help='note for this run')
 args = parser.parse_args()
 
 
-args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
+#args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
 log_format = '%(asctime)s %(message)s'
@@ -179,8 +182,8 @@ def main():
         
         import generalNAS_tools.data_preprocessing_TF as dp
         
-        # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
-        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
+        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+        #train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
 
         criterion = nn.BCELoss().to(device)
 
@@ -307,16 +310,25 @@ def main():
 
             labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False, task=args.task)
             
-            scheduler.step()
-            
             labels = np.concatenate(labels)
             predictions = np.concatenate(predictions)
+            
+            scheduler.step()
+
             
             if args.task == 'next_character_prediction':
                 acc = overall_acc(labels, predictions, args.task)
                 logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
                 train_acc.append(acc)
-            else:
+            else: 
+                #predictions = torch.Tensor(predictions)
+                #predictions = predictions.view((args.num_steps*args.batch_size)+args.batch_size,919)
+                #predictions = predictions.detach().cpu().numpy()
+                
+                #labels = torch.Tensor(labels)
+                #labels = labels.view((args.num_steps*args.batch_size)+args.batch_size,919)
+                #labels = labels.detach().cpu().numpy()
+            
                 f1 = overall_f1(labels, predictions, args.task)
                 logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
                 train_acc.append(f1)
@@ -348,6 +360,15 @@ def main():
                         valid_acc.append(acc)
 
                     else:
+                        
+                        #predictions = torch.Tensor(predictions)
+                        #predictions = predictions.view((args.num_steps*args.batch_size)+args.batch_size,919)
+                        #predictions = predictions.detach().cpu().numpy()
+                
+                        #labels = torch.Tensor(labels)
+                        #labels = labels.view((args.num_steps*args.batch_size)+args.batch_size,919)
+                        #labels = labels.detach().cpu().numpy()
+                        
                         f1 = overall_f1(labels, predictions, args.task)
                         logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, f1))
                         valid_acc.append(f1)
@@ -364,29 +385,27 @@ def main():
             
     
     
-    genotype_file = '{}-darts_geno'.format(args.save)
-    np.save(genotype_file, genotype)
-  
-    trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-    np.save(trainloss_file, train_losses)
-    acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
-    np.save(acc_train_file, train_acc)
-    #predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
-    #np.save(predictions__train_file, all_predictions_train)
+    genotype_file = 'darts_geno-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, genotype_file), genotype)
     
-    time_file = '{}-time-{}'.format(args.save, train_start)
-    np.save(time_file, time_per_epoch)
-      
+    trainloss_file = 'train_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+    
+    acc_train_file = 'acc_train-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+
+    time_file = 'time-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
 
     # safe valid data
-    validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-    np.save(validloss_file, valid_losses)
-    acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
-    np.save(acc_valid_file, valid_acc)
-    #predictions__valid_file = '{}-predictions_valid-{}'.format(args.save, train_start)
-    #np.save(predictions__valid_file, all_predictions_valid)
-    
+    validloss_file = 'valid_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
 
+    acc_valid_file = 'acc_valid-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
+    
+    
+      
 
   
 
