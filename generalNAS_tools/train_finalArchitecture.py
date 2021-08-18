@@ -130,6 +130,10 @@ parser.add_argument('--search', type=bool, default=False, help='which architectu
 parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path probability')
 parser.add_argument('--report_freq', type=float, default=1000, help='report frequency')
 parser.add_argument('--note', type=str, default='try', help='note for this run')
+parser.add_argument('--save', type=str,  default='darts',
+                    help='name to save the labels and predicitons')
+parser.add_argument('--save_dir', type=str,  default='lr8_nodrop',
+                    help='path to save the labels and predicitons')
 parser.add_argument('--model_path', type=str,  default='./nodrop_rhn8.pth',
                     help='path to save the trained model')
 parser.add_argument('--report_validation', type=int, default=1, help='validation report frequency')
@@ -139,7 +143,7 @@ parser.add_argument('--patience', type=int, default=5, help='how many epochs wit
 args = parser.parse_args()
 
 
-args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
+#args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
 log_format = '%(asctime)s %(message)s'
@@ -250,6 +254,8 @@ def main():
     
     train_start = time.strftime("%Y%m%d-%H%M")
 
+    cnt = 0
+    
     for epoch in range(args.epochs):
         # epoch=0
                     
@@ -308,7 +314,7 @@ def main():
           else:
               f1 = overall_f1(labels, predictions, args.task)
               logging.info('| epoch {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
-              logging.info('| epoch {:3d} | val loss {:5.2f}'.format(epoch, valid_loss))
+              logging.info('| epoch {:3d} | val loss {:5.4f}'.format(epoch, valid_loss))
 
               valid_acc.append(f1)
            
@@ -318,28 +324,32 @@ def main():
                   cnt = 0
               else:
                   cnt += 1
+                  print(cnt)
                   
               if cnt == args.patience:
                   
                   valid_losses.append(valid_loss)
                   torch.save(model, args.model_path)
-  
-                  trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-                  np.save(trainloss_file, train_losses)
-                  acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
-                  np.save(acc_train_file, train_acc)
+                  
+                  ###############
+                  trainloss_file = 'train_loss-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+               
+                  acc_train_file = 'acc_train-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+
                   # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
                   # np.save(predictions__train_file, all_predictions_train)
   
-                  time_file = '{}-time-{}'.format(args.save, train_start)
-                  np.save(time_file, time_per_epoch)
-      
+                  time_file = 'time-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
 
                   # safe valid data
-                  validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-                  np.save(validloss_file, valid_losses)
-                  acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
-                  np.save(acc_valid_file, valid_acc)
+                  validloss_file = 'valid_loss-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+
+                  acc_valid_file = 'acc_valid-{}'.format(args.save)
+                  np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
                   break
                     
                   
@@ -349,24 +359,33 @@ def main():
           
     torch.save(model, args.model_path)
 
-    trainloss_file = '{}-train_loss-{}'.format(args.save, train_start)
-    np.save(trainloss_file, train_losses)
-    acc_train_file = '{}-acc_train-{}'.format(args.save, train_start)
-    np.save(acc_train_file, train_acc)
+      ###############
+    trainloss_file = 'train_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+ 
+    acc_train_file = 'acc_train-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+
     # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
     # np.save(predictions__train_file, all_predictions_train)
 
-    time_file = '{}-time-{}'.format(args.save, train_start)
-    np.save(time_file, time_per_epoch)
-
+    time_file = 'time-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
 
     # safe valid data
-    validloss_file = '{}-valid_loss-{}'.format(args.save, train_start)
-    np.save(validloss_file, valid_losses)
-    acc_valid_file = '{}-acc_valid-{}'.format(args.save, train_start)
-    np.save(acc_valid_file, valid_acc)
+    validloss_file = 'valid_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+
+    acc_valid_file = 'acc_valid-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
         
-        
+    
+if __name__ == '__main__':
+    start_time = time.time()
+    main() 
+    end_time = time.time()
+    duration = end_time - start_time
+    logging.info('Total searching time: %ds', duration)
      
         
      
