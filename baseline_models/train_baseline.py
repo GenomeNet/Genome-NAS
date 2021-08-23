@@ -363,7 +363,7 @@ def main():
   labels = np.concatenate(labels)
   predictions = np.concatenate(predictions)
       
-  test_losses.append(objs.avg)
+  test_losses.append(objs.avg.detach().cpu().numpy())
   all_labels_test.append(labels)
   all_predictions_test.append(predictions)
       
@@ -425,8 +425,10 @@ def Train(model, train_loader, optimizer, criterion, device, num_steps):
                 
         objs.update(loss.data, batch_size)
        
-    return labels, predictions, objs.avg
+    return labels, predictions, objs.avg.detach().cpu().numpy()
     
+
+
 
 def Valid(model, valid_loader, optimizer, criterion, device, num_steps):
    
@@ -477,7 +479,7 @@ def Valid(model, valid_loader, optimizer, criterion, device, num_steps):
                 
             objs.update(loss.data, batch_size)
   
-    return labels, predictions, objs.avg #top1.avg, objs.avg
+    return labels, predictions, objs.avg.detach().cpu().numpy() #top1.avg, objs.avg
 
 
 if __name__ == '__main__':
