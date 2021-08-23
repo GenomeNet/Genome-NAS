@@ -129,7 +129,7 @@ parser.add_argument('--model', type=str, default='/home/amadeu/Desktop/GenomNet_
 args = parser.parse_args()
 
 
-args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
+# args.save = '{}search-{}-{}'.format(args.save, args.note, time.strftime("%Y%m%d-%H%M%S"))
 utils.create_exp_dir(args.save, scripts_to_save=glob.glob('*.py'))
 
 log_format = '%(asctime)s %(message)s'
@@ -200,8 +200,8 @@ def main():
 
     for step, (input, target) in enumerate(test_queue):
         
-        if step > args.num_steps:
-            break
+        #if step > args.num_steps:
+        #    break
         
         # input = input.transpose(1,2).float()
         input = input.to(device).float()
