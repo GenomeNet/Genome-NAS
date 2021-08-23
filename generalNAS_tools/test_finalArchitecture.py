@@ -232,12 +232,15 @@ def main():
     all_predictions_test.append(predictions)
       
 
-    testloss_file = '{}-test_loss-{}'.format(args.save, train_start)
-    np.save(testloss_file, test_losses)
-    labels_test_file = '{}-labels_test-{}'.format(args.save, train_start)
-    np.save(labels_test_file, all_labels_test)
-    predictions_test_file = '{}-predictions_test-{}'.format(args.save, train_start)
-    np.save(predictions_test_file, all_predictions_test)
+    testloss_file = 'test_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, testloss_file), test_losses)
+
+    labels_test_file = 'labels_test-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, labels_test_file), all_labels_test)
+
+    predictions_test_file = 'predictions_test-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, predictions_test_file), all_predictions_test)
+    
     
 if __name__ == '__main__':
     start_time = time.time()
