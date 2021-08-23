@@ -227,7 +227,7 @@ def main():
     labels = np.concatenate(labels)
     predictions = np.concatenate(predictions)
       
-    test_losses.append(objs.avg)
+    test_losses.append(objs.avg.detach().cpu().numpy())
     all_labels_test.append(labels)
     all_predictions_test.append(predictions)
       
@@ -238,3 +238,10 @@ def main():
     np.save(labels_test_file, all_labels_test)
     predictions_test_file = '{}-predictions_test-{}'.format(args.save, train_start)
     np.save(predictions_test_file, all_predictions_test)
+    
+if __name__ == '__main__':
+    start_time = time.time()
+    main() 
+    end_time = time.time()
+    duration = end_time - start_time
+    logging.info('Total searching time: %ds', duration)

@@ -169,7 +169,7 @@ def train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, opti
     if train_arch==True:
         logging.info('{} epoch done   '.format(epoch) + str(model.genotype()))
 
-    return labels, predictions, objs.avg # top1.avg, objs.avg
+    return labels, predictions, objs.avg.detach().cpu().numpy() # top1.avg, objs.avg
 
 
 def infer(valid_queue, model, criterion, batch_size, num_steps, report_freq, task=None):
@@ -219,4 +219,4 @@ def infer(valid_queue, model, criterion, batch_size, num_steps, report_freq, tas
             logging.info('| step {:3d} | val obj {:5.2f}'.format(step, objs.avg))
 
 
-    return labels, predictions, objs.avg # top1.avg, objs.avg
+    return labels, predictions, objs.avg.detach().cpu().numpy() # top1.avg, objs.avg
