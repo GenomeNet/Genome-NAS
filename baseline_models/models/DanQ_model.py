@@ -28,6 +28,8 @@ import gc
 from tqdm import tqdm_notebook as tqdm
 from torch.utils.data import Dataset,DataLoader
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
 
 
@@ -37,15 +39,13 @@ class NN_class(nn.Module):
         self.num_classes = num_classes
         self.num_motifs = 320
         self.batch_size = batch_size
-        self.conv1d = nn.Conv1d(4, self.num_motifs,kernel_size=26, stride=1) # with seq_len= 1000 kernel_size=26; seq_len=150 kernelsize=9
+        self.conv1d = nn.Conv1d(4, self.num_motifs, kernel_size=26, stride=1) # with seq_len= 1000 kernel_size=26; seq_len=150 kernelsize=9
         self.seq_size = seq_size
         
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool1d(kernel_size = 13, stride = 13) # seq_len=1000 kernel_size= 13 stride=13; seq_len=150 kernelsize=4 stride=4
         self.dropout = nn.Dropout(p=0.2)
-        
-
-        
+            
         self.lstm = nn.LSTM(self.num_motifs, #
                             self.num_motifs,
                             bidirectional=True)
@@ -70,11 +70,11 @@ class NN_class(nn.Module):
 
     
     def zero_state(self, batch_size):
-        return (torch.zeros(2, batch_size, self.num_motifs),
-               torch.zeros(2, batch_size, self.num_motifs))
+        return (torch.zeros(2, batch_size, self.num_motifs).to(device),
+               torch.zeros(2, batch_size, self.num_motifs).to(device))
         
     
-    def forward(self, x):
+    def forward(self, x, batch_size):
         
       
         x = self.conv1d(x) 
@@ -85,7 +85,8 @@ class NN_class(nn.Module):
         
         x = self.dropout(x)
         
-        h_0, c_0 = self.zero_state(self.batch_size)
+        h_0, c_0 = self.zero_state(batch_size)
+        #print(x.shape) # [2,320,75]
 
         
         # x = torch.transpose(x, 1, 2)
@@ -94,22 +95,23 @@ class NN_class(nn.Module):
 
         #CNN expects [batchsize, input_channels, signal_length]
         # lstm expects shape [batchsize, signal_length, number of features]
-        #print(x.shape)
+        # print(x.shape)
         #print(prev_state.shape)
 
              
         output, state = self.lstm(x, (h_0, c_0))
         
         # x = torch.transpose(x, 1, 2)
+        #print(x.shape) # [75,2,320]
         x = output.permute(1,0,2)
+        #print(x.shape) # [2,75,640]
         
         x = torch.flatten(x, start_dim= 1) 
+        x = self.dropout_2(x)
 
 
-        
         #x = torch.reshape(output, (self.batch_size,self.num_neurons*self.num_motifs)) # seqlen=1000 75 neuronen; seq_len=150 35 neuronen
         #x = torch.flatten(x,1)
-        x = self.dropout_2(x)
 
       
         x = self.fc1(x)
@@ -120,7 +122,7 @@ class NN_class(nn.Module):
         
         x = self.final(x)
         
-        return x#, state
+        return x #, state
     
     
 

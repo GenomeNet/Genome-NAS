@@ -30,8 +30,7 @@ from torch.utils.data import Dataset,DataLoader
 import math
 
 
-
-   
+    
 class NN_class(nn.Module):
     def __init__(self, num_classes, batch_size, seq_size, task):
         
@@ -80,6 +79,7 @@ class NN_class(nn.Module):
       
         #print(x.shape)
         x = self.layer2(x)
+        # print(x.shape)
        
         x = self.layer3(x) #
                 
