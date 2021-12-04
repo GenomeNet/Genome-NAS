@@ -15,18 +15,21 @@ import torch
 from darts_tools.auxiliary_functions import *
 
 import copy
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-# model, switches_normal_cnn, switches_reduce_cnn, num_to_keep, num_to_drop, sp
+# model, switches_normal_cnn, switches_reduce_cnn, num_to_keep, num_to_drop, sp, new_alpha_values=False
+
+
 
 def discard_cnn_ops(model, switches_normal_cnn, switches_reduce_cnn, num_to_keep, num_to_drop, sp, new_alpha_values=True):
 
         
-    arch_normal = model.alphas_normal
+    arch_normal = model.alphas_normal # ist immer auf GPU
     normal_prob = F.softmax(arch_normal, dim=-1).data.cpu().numpy()     
     # normal_prob = F.softmax(alphas_normal, dim=-1).data.cpu().numpy()     
     # update switches from CNN
-    new_normal_arch = torch.empty(1,num_to_keep[sp])
+    new_normal_arch = torch.empty(1,num_to_keep[sp])#.cpu()
     
     switch_count = 0
     
@@ -46,14 +49,17 @@ def discard_cnn_ops(model, switches_normal_cnn, switches_reduce_cnn, num_to_keep
                 drop = get_min_k_no_zero(normal_prob[i-switch_count, :], idxs, num_to_drop[sp])
             else: 
                 drop = get_min_k(normal_prob[i-switch_count, :], num_to_drop[sp])
+                
+                keep = np.sort(get_max_k(normal_prob[i-switch_count, :], num_to_keep[sp]))
                 ## reinitialize the one-shot model of next stage with following alpha values
                 # chose the worst performing operation
                 if new_alpha_values==True:
-                    dropped_alpha = arch_normal[i-switch_count, drop]    
-                    # discard the worst performing operation
-                    new_row = arch_normal[i-switch_count,:][arch_normal[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep[sp])
+                    # dropped_alpha = arch_normal[i-switch_count, drop]    
+                    # discard the worst performing operation 
+                    new_row = arch_normal[i,keep].reshape(1,num_to_keep[sp])
+                    #new_row = arch_normal[i-switch_count,:][arch_normal[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep[sp]) # müsste immmer auf GPU sein
                     
-                    new_normal_arch = torch.cat((new_normal_arch, new_row))
+                    new_normal_arch = torch.cat((new_normal_arch.to(device), new_row)) # ich glaube new_normal_arch ist eben auf CPU und das muss geändert werden!!
                 
             for idx in drop: # 3 dann 1
                 switches_normal_cnn[i][idxs[idx]] = False 
@@ -81,13 +87,16 @@ def discard_cnn_ops(model, switches_normal_cnn, switches_reduce_cnn, num_to_keep
                 drop = get_min_k_no_zero(reduce_prob[i-switch_count, :], idxs, num_to_drop[sp])
             else:
                 drop = get_min_k(reduce_prob[i-switch_count, :], num_to_drop[sp])
+                keep = np.sort(get_max_k(reduce_prob[i-switch_count, :], num_to_keep[sp]))
+
                 
                 if new_alpha_values==True:
-                    dropped_alpha = arch_reduce[i-switch_count, drop]    
+                    # dropped_alpha = arch_reduce[i-switch_count, drop]    
                     # discard the worst performing operation
-                    new_row = arch_reduce[i-switch_count,:][arch_reduce[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep[sp])
+                    # new_row = arch_reduce[i-switch_count,:][arch_reduce[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep[sp])
+                    new_row = arch_reduce[i,keep].reshape(1,num_to_keep[sp])
                     
-                    new_reduce_arch = torch.cat((new_reduce_arch, new_row))
+                    new_reduce_arch = torch.cat((new_reduce_arch.to(device), new_row))
                 
             for idx in drop:
                 
@@ -124,13 +133,15 @@ def discard_rhn_ops(model, switches_rnn, num_to_keep_rnn, num_to_drop_rnn, sp, n
                
             else:
                 drop = get_min_k(rnn_prob[i-switch_count, :], num_to_drop_rnn[sp])
-                
+                keep = np.sort(get_max_k(rnn_prob[i-switch_count, :], num_to_keep_rnn[sp]))
+
                 if new_alpha_values==True:
-                    dropped_alpha = arch_rnn[i-switch_count, drop]    
+                    # dropped_alpha = arch_rnn[i-switch_count, drop]    
+                    new_row = arch_rnn[i,keep].reshape(1,num_to_keep_rnn[sp])
                     # discard the worst performing operation from alpha-matrix
-                    new_row = arch_rnn[i-switch_count,:][arch_rnn[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep_rnn[sp])
+                    #new_row = arch_rnn[i-switch_count,:][arch_rnn[i-switch_count,:]!=dropped_alpha].view(1,num_to_keep_rnn[sp])
                         
-                    new_arch_rnn = torch.cat((new_arch_rnn, new_row))
+                    new_arch_rnn = torch.cat((new_arch_rnn.to(device), new_row))
             for idx in drop:
                 switches_rnn[i][idxs[idx]] = False
         else:

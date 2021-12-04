@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct 29 18:23:04 2021
+Created on Fri Oct  8 21:51:01 2021
 
 @author: amadeu
 """
@@ -32,8 +32,6 @@ from darts_tools.comp_aux import get_state_ind, get_w_pos
 import torch.autograd.profiler as profiler
 
 
-
-
 import darts_tools.cnn_eval as cnn_eval
 
 INITRANGE = 0.04
@@ -59,6 +57,10 @@ class MixedOp(nn.Module):
                     op = nn.Sequential(op, nn.BatchNorm1d(C, affine=False))
                 if isinstance(op, Identity) and p > 0: #
                     op = nn.Sequential(op, nn.Dropout(self.p))
+                #if isinstance(op, nn.AvgPool1d) and p > 0: #
+                #    op = nn.Sequential(op, nn.Dropout(self.p))
+                #if isinstance(op, nn.MaxPool1d) and p > 0: #
+                #    op = nn.Sequential(op, nn.Dropout(self.p))
                     
                 self.m_ops.add_module(primitive, op)
             #else:
@@ -94,8 +96,8 @@ class MixedOp(nn.Module):
        
 
 class CNN_Cell_search(nn.Module):
-    # steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches_normal, self.p
-    # C_curr = C, switches_normal
+    # steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, reduction_high, switches, p =4,4,8,8,8,False,False,False,switches_normal_cnn, 0.0
+
     def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, switches, p, reduction_high):
         super(CNN_Cell_search, self).__init__()
         self.reduction = reduction
@@ -116,20 +118,15 @@ class CNN_Cell_search(nn.Module):
         self.state_idxs = get_state_ind(self._steps, switches)
         # _steps, switches = 4, switches_normal_cnn
         # state_idxs = get_state_ind(_steps, switches)
-        
         self.w_pos = get_w_pos(self._steps, switches)
         # w_pos = get_w_pos(_steps, switches)
-                
         switch_count = 0
         #discard_switch = []
         
         for i in range(self._steps):
          
             for j in range(2+i):
-                # i0: j=0,1 ; count=0,1
-                # i1: j=0,1,2 ; count=2,3,4
-                # i2: j=0,1,2,3 ; count=5,6,7,8
-                # i3: j=0,1,2,3,4 ; count = 9,10,11,12,13
+       
                 if switches[switch_count].count(False) != len(switches[switch_count]):
                     
                     stride = 2 if reduction and j < 2 else 1
@@ -145,14 +142,11 @@ class CNN_Cell_search(nn.Module):
                     
                     op = MixedOp(C, stride, switch=switches[switch_count], p=self.p) # d.h. für i=1, greift er auf 0te, 1te und 2te zeile von switches
                    
-                    self.cell_ops.add_module(str(switch_count), op)
-                #else:
+                    self.cell_ops.append(op)
+                # else:
                 #    discard_edge += 1
                     
                 switch_count += 1
-                
-               
-              
     
     def update_p(self):
         for op in self.cell_ops:# cell_ops[0]
@@ -160,49 +154,24 @@ class CNN_Cell_search(nn.Module):
             op.update_p()
 
     def forward(self, s0, s1, weights):
-        
-        #cell_ops_new = nn.ModuleList()
-        #for op in self.cell_ops:
-        #    if op != None:
-        #        cell_ops_new.append(op)
-        
-        #with profiler.record_function("CNN PASS"):
-        #with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
-
-        
+       
         s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
-        # s0 = preprocess0(s0)
-        # s0 = s1 = torch.rand(2,4,10)
-        # s0  = s0.unsqueeze(0)
-        # s1 = s1.unsqueeze(0)
+       
         states = [s0, s1]
-   
-        #states = torch.cat([s0,s1], dim=0) # wird zu [4,4,200]
-        #states = torch.cat([states, s.unsqueeze(0)], 0) 
 
-        
-        #for j, h in enumerate(states):
-        #    print(j)
-        #    print(h[0].shape)
-        
-    
         for i in range(self._steps):
-            
-            # i=3
+           
             # s = sum(self.cell_ops[offset+j](h, weights[offset+j]) for j, h in enumerate(states)) # vorher node_states und start anstatt offset
-            # s = sum(self.cell_ops[self.w_pos[i]+j](h, weights[self.w_pos[i]+j]) for j, h in enumerate(itemgetter(*self.state_idxs[i])(states))) # vorher node_states und start anstatt offset
-            s = sum(self.cell_ops[self.w_pos[i]+j](h, weights[self.w_pos[i]+j]) for j, h in enumerate(states) if j in self.state_idxs[i]) # vorher node_states und start anstatt offset
+            s = sum(self.cell_ops[self.w_pos[i]+j](h, weights[self.w_pos[i]+j]) for j, h in enumerate(itemgetter(*self.state_idxs[i])(states))) # vorher node_states und start anstatt offset
+            # s = sum(self.cell_ops[self.w_pos[i]+j](h, weights[self.w_pos[i]+j]) for j, h in enumerate(states) if j in self.state_idxs[i]) # vorher node_states und start anstatt offset
 
-        
-     
             states.append(s)
             
         return torch.cat(states[-self._multiplier:], dim=1)
     
-     
-# h = torch.rand(2,16,200)
-# cell_ops[0][0](h, weights[0])
+
+    
 
 
 # for evaluation
@@ -329,23 +298,7 @@ class RNNModel(nn.Module):
             self.switches_rnn = switches_rnn
             self.num_ops_cnn = sum(switches_normal[0])
             self.num_ops_rnn = sum(switches_rnn[0])
-            
-            #self.alphas_normal = alphas_normal
-            #self.alphas_reduce = alphas_reduce
-            #self.alphas_rnn = alphas_rnn
-            
-            #self.weights = alphas_rnn
-            
-            #for rnn in self.rnns:
-            #    rnn.weights = self.weights
-          
-            #self._arch_parameters = [
-            #    self.alphas_normal,
-            #    self.alphas_reduce,
-            #    self.alphas_rnn,
-            #    ]
     
-
         C_curr = stem_multiplier*C
         self.stem = nn.Sequential(
             nn.Conv1d(4, C_curr, 13, padding=6, bias=False),
@@ -355,7 +308,6 @@ class RNNModel(nn.Module):
         C_prev_prev, C_prev, C_curr = C_curr, C_curr, C #24,24,8
         self.cells = nn.ModuleList()
         reduction_prev = False
-        
         
         layer_list = []
         
@@ -383,17 +335,10 @@ class RNNModel(nn.Module):
                     
                 if search == True:
                     switches = self.switches_reduce
-
                     cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high) 
                 else:
                     cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high)
 
-                #stride=2
-            #if i in [layers//3, 2*layers//3]:
-            #    C_curr *= 2
-            #    reduction = True
-            #    if search == True:
-            #        switches = self.switches_reduce
             else:
                 reduction = reduction_high = False
                 # reduction = False
@@ -430,12 +375,13 @@ class RNNModel(nn.Module):
         else:
             # run search
             assert genotype is None
-            import model_search
-            cell_cls = model_search.DARTSCellSearch
-            self.rnns = [cell_cls(ninp, nhid, dropouth, dropoutx, self.switches_rnn)]
+            import model_search_de
+            cell_cls = model_search_de.DARTSCellSearch
+            self.rnns = torch.nn.ModuleList([cell_cls(ninp, nhid, dropouth, dropoutx, self.switches_rnn)])
+            #self.rnns = [cell_cls(ninp, nhid, dropouth, dropoutx, self.switches_rnn)]
 
        
-        self.rnns = torch.nn.ModuleList(self.rnns)
+        #self.rnns = torch.nn.ModuleList(self.rnns)
         
         self.alphas_normal = alphas_normal
         self.alphas_reduce = alphas_reduce
@@ -476,13 +422,8 @@ class RNNModel(nn.Module):
         self.ninp = ninp
         self.nhid = nhid
         self.nhidlast = nhidlast
-        #self.dropout = dropout
-        #self.dropouti = dropouti
-        #self.dropoute = dropoute
-        #self.cell_cls = cell_cls
-        #self._initialize_arch_parameters()
 
-        
+      
     def init_weights(self):
         
         self.decoder.bias.data.fill_(0)
@@ -514,8 +455,7 @@ class RNNModel(nn.Module):
 
         out_channels = s1.size(1)
         num_neurons = s1.size(2)
-        
-        
+
         #CNN expects [batchsize, input_channels, signal_length]
         # RHN expect [seq_len, batch_size, features]
         # [2, 256, 50]
@@ -545,7 +485,8 @@ class RNNModel(nn.Module):
         outputs.append(output)
         
         output = output.permute(1,0,2)
-        #print(x.shape) # [250, 2, 128]
+        
+        #print(output.shape) # [250, 2, 128]
         # flatten the RNN output
         x = torch.flatten(output, start_dim= 1) 
         

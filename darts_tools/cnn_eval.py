@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 28 09:57:51 2021
+Created on Fri Oct 29 18:24:53 2021
 
 @author: amadeu
 """
@@ -101,10 +101,3 @@ class CNN_Cell_eval(nn.Module):
       s = h1 + h2
       states += [s]
     return torch.cat([states[i] for i in self._concat], dim=1)
-
-
-
-
-
-
-

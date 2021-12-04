@@ -79,6 +79,16 @@ def get_min_k(input_in, k):
         input[idx] = 1
     return index
 
+
+def get_max_k(input_in, k):
+    input = copy.deepcopy(input_in)
+    index = []
+    for i in range(k):
+        idx = np.argmax(input) 
+        index.append(idx)
+        input[idx] = -1
+    return index
+
 # drop = get_min_k_no_zero(normal_prob[i-switch_count, :], idxs, num_to_drop[sp])
 # w_in, idxs, k = normal_prob[i-switch_count, :], idxs, 2
 def get_min_k_no_zero(w_in, idxs, k):
@@ -169,7 +179,7 @@ def keep_1_on(switches_in, probs): # in order to have only one operation per edg
     disc_edg_cnt = 0
     for i in range(len(switches)):
         if switches[i].count(False) != len(switches[i]):
-            # i=13
+            # i=7
             idxs = []
             for j in range(len(PRIMITIVES_cnn)):
                 if switches[i][j]:
