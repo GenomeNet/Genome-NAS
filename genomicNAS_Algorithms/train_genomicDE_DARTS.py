@@ -85,7 +85,7 @@ parser.add_argument('--dropoutx', type=float, default=0.75,
                     help='dropout for input nodes in rnn layers (0 = no dropout)')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--report_freq', type=float, default=1000, help='report frequency')
-parser.add_argument('--epochs', type=int, default=15, help='num of training epochs')
+parser.add_argument('--epochs', type=int, default=[10, 9, 8, 7, 6, 5, 5], help='num of training epochs')
 parser.add_argument('--init_channels', type=int, default=16, help='num of init channels')
 parser.add_argument('--layers', type=int, default=3, help='total number of layers')
 parser.add_argument('--cutout', action='store_true', default=False, help='use cutout')
@@ -202,7 +202,7 @@ def main():
     # num of epochs without alpha weight updates    
     eps_no_archs = [1, 1, 1, 1, 1, 1, 1]
     
-    epochs = [6, 6, 6, 6, 6, 6, 6]
+    # epochs = [6, 6, 6, 6, 6, 6, 6]
     
     cnn_aux = 2
     rnn_aux = 6
@@ -218,7 +218,6 @@ def main():
         
         if sp ==0:
          
-           
            k_cnn = sum(1 for i in range(args.steps) for n in range(2+i))
           
            num_ops_cnn = len(switches_normal_cnn[0])
@@ -311,7 +310,7 @@ def main():
         #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, float(args.epochs))
         
         sm_dim = -1
-        epochs = args.epochs
+        epochs = args.epochs[sp]
         eps_no_arch = eps_no_archs[sp]
         scale_factor = 0.2
         

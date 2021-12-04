@@ -182,17 +182,23 @@ def main():
         
         import generalNAS_tools.data_preprocessing_TF as dp
         
-        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
-        #train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
-
+        # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
+        
         criterion = nn.BCELoss().to(device)
+        
+        # from generalNAS_tools.custom_loss_functions import weighted_BCE
+        
+        # criterion = weighted_BCE(train_queue, 30000).to(device)
+        # criterion = nn.BCEWithLogitsLoss(reduction='none').to(device)
+        # torch.mean(criterion.positive_weights)
+#        from generalNAS_tools.custom_loss_functions import get_criterion
+#        criterion = get_criterion(train_queue, 30000)
 
         num_classes = 919
     
         
     # build Network
-    
-    
     
     # initialize switches
     # in DARTS they should always be True for all operations, because we keep all operations and edges during
@@ -296,10 +302,13 @@ def main():
     
     time_per_epoch = []
     
-    
     clip_params = [args.conv_clip, args.rhn_clip, args.clip]
     
-        
+    eps_no_arch = 5
+    
+    all_labels_valid = []
+    all_predictions_valid = []
+
     for epoch in range(epochs):
             # epoch=0
             train_start = time.strftime("%Y%m%d-%H%M")
@@ -307,8 +316,15 @@ def main():
             lr = scheduler.get_last_lr()[0]
             logging.info('Epoch: %d lr: %e', epoch, lr)
             epoch_start = time.time()
+            
+            if epoch < eps_no_arch: 
+                labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=False, task=args.task)
+            else:
+                labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False, task=args.task)
 
-            labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, architect, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=False, task=args.task)
+                # labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, optimizer_a, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=True, pdarts=True, task=args.task)
+                # model.arch_parameters()
+
             
             labels = np.concatenate(labels)
             predictions = np.concatenate(predictions)
@@ -321,13 +337,6 @@ def main():
                 logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
                 train_acc.append(acc)
             else: 
-                #predictions = torch.Tensor(predictions)
-                #predictions = predictions.view((args.num_steps*args.batch_size)+args.batch_size,919)
-                #predictions = predictions.detach().cpu().numpy()
-                
-                #labels = torch.Tensor(labels)
-                #labels = labels.view((args.num_steps*args.batch_size)+args.batch_size,919)
-                #labels = labels.detach().cpu().numpy()
             
                 f1 = overall_f1(labels, predictions, args.task)
                 logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
@@ -352,29 +361,19 @@ def main():
                     
                     valid_losses.append(valid_loss)
                     #all_labels_valid.append(labels)
-                    #all_predictions_valid.append(predictions)
+                    logging.info('| epoch {:3d} | valid loss {:5.2f}'.format(epoch, valid_loss))
+
             
                     if args.task == 'next_character_prediction':
                         acc = overall_acc(labels, predictions, args.task)
                         logging.info('| epoch {:3d} | valid acc {:5.2f}'.format(epoch, acc))
                         valid_acc.append(acc)
-
                     else:
-                        
-                        #predictions = torch.Tensor(predictions)
-                        #predictions = predictions.view((args.num_steps*args.batch_size)+args.batch_size,919)
-                        #predictions = predictions.detach().cpu().numpy()
-                
-                        #labels = torch.Tensor(labels)
-                        #labels = labels.view((args.num_steps*args.batch_size)+args.batch_size,919)
-                        #labels = labels.detach().cpu().numpy()
-                        
                         f1 = overall_f1(labels, predictions, args.task)
                         logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, f1))
                         valid_acc.append(f1)
             
           
-            
             epoch_end = time.time()
             epoch_duration = epoch_end - epoch_start
             logging.info('Epoch time: %ds', epoch_duration)
@@ -384,6 +383,15 @@ def main():
             logging.info(genotype) 
             
     
+    all_labels_valid.append(labels)
+    all_predictions_valid.append(predictions)
+    
+    labels_valid_file = 'labels_valid-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, labels_valid_file), all_labels_valid)
+
+    predictions_valid_file = 'predictions_valid-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, predictions_valid_file), all_predictions_valid)
+
     
     genotype_file = 'darts_geno-{}'.format(args.save)
     np.save(os.path.join(args.save_dir, genotype_file), genotype)
@@ -406,8 +414,6 @@ def main():
     
     
       
-
-  
 
 if __name__ == '__main__':
     start_time = time.time()

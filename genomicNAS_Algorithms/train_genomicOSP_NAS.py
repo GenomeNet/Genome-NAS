@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun 26 09:53:23 2021
+Created on Sun Nov  7 23:17:14 2021
 
 @author: amadeu
 """
 
-# from generate_samples import generate_random_architectures
 from randomSearch_and_Hyperband_Tools.random_Sampler import generate_random_architectures
 #from transform_genotype import transform_Genotype
 from randomSearch_and_Hyperband_Tools.utils import mask2geno, merge, mask2switch
@@ -23,18 +22,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import copy
-
 import gc
-
-# original nur RNN version
 import generalNAS_tools.genotypes
-
 # import randomSearch_and_Hyperband_Tools.model_search as one_shot_model
 import randomSearch_and_Hyperband_Tools.model_search2 as one_shot_model
-
-
 # import model_search as one_shot_model
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 from generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint
@@ -49,6 +41,14 @@ from generalNAS_tools.train_and_validate_HB import train, infer
 
 from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
 
+# from randomSearch_and_Hyperband_Tools.hyperbandSampler import maskout_ops, create_new_supersubnet
+
+from randomSearch_and_Hyperband_Tools.create_masks import create_cnn_masks, create_rhn_masks
+
+import itertools
+import logging
+
+from randomSearch_and_Hyperband_Tools.hyperband_final_tools import final_stage_run
 
 
 #from ..data_preprocessing import get_data
@@ -63,17 +63,17 @@ parser.add_argument('--cnn_weight_decay', type=float, default=3e-4, help='weight
 parser.add_argument('--rhn_lr', type=float, default=2, help='learning rate for CNN part')
 parser.add_argument('--rhn_weight_decay', type=float, default=5e-7, help='weight decay for RHN part')
 
-parser.add_argument('--num_disc', type=int, default=3, help='number of operations which are discarded after budget')
+parser.add_argument('--num_ops', type=int, default=4, help='number of operations which are evaluated after budget')
 parser.add_argument('--pretrain_epochs', type=int, default=5, help='budget/epochs after operations are discarded')
 parser.add_argument('--budget', type=int, default=1, help='budget/epochs after operations are discarded')
 parser.add_argument('--num_super_subnets', type=int, default=5, help='number of supersubnets which are created after ')
-parser.add_argument('--num_init_archs', type=int, default=4, help='build the initialized supermodel with a certain number of subarchitctures')
+parser.add_argument('--num_init_archs', type=int, default=108, help='build the initialized supermodel with a certain number of subarchitctures')
 
 
 parser.add_argument('--validation', type=bool, default=True)
 parser.add_argument('--report_validation', type=int, default=2, help='validation epochs') 
 
-parser.add_argument('--num_steps', type=int, default=3, help='number of iterations per epoch')
+parser.add_argument('--num_steps', type=int, default=4, help='number of iterations per epoch')
 parser.add_argument('--train_directory', type=str, default='/home/amadeu/Downloads/genomicData/train', help='directory of training data')
 parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloads/genomicData/validation', help='directory of validation data')
 parser.add_argument('--test_directory', type=str, default='/home/amadeu/Downloads/genomicData/test', help='directory of test data')
@@ -158,6 +158,33 @@ logging = logging.getLogger(__name__)
 
 
 def main():
+    
+    def maskout_ops(disc_ops_normal, disc_ops_reduce, disc_ops_rhn, supernet_mask):
+        supernet_mask = copy.deepcopy(supernet_mask)
+        supernet_mask_new = supernet_mask
+        supernet_mask_new[0][disc_ops_normal[0], disc_ops_normal[1]] = 0
+       
+        supernet_mask_new[1][disc_ops_reduce[0], disc_ops_reduce[1]] = 0
+        
+        supernet_mask_new[2][disc_ops_rhn[0], disc_ops_rhn[1]] = 0
+       
+        return supernet_mask_new
+
+
+    def create_new_supersubnet(hb_results, supernet_mask):
+        supernet_mask = copy.deepcopy(supernet_mask)
+        supernet_mask_new = supernet_mask
+    
+        for i in range(len(hb_results)-1):
+            disc_ops = hb_results[i][0]
+            
+            supernet_mask_new[0][disc_ops[0][0], disc_ops[0][1]] = 0
+            
+            supernet_mask_new[1][disc_ops[1][0], disc_ops[1][1]] = 0
+          
+            supernet_mask_new[2][disc_ops[2][0], disc_ops[2][1]] = 0
+           
+        return supernet_mask_new
   
     torch.manual_seed(args.seed)
       
@@ -185,24 +212,16 @@ def main():
         criterion = nn.BCELoss().to(device)
 
         num_classes = 919
+        
+        
+            
+    normal_masks = create_cnn_masks(args.num_init_archs)
+    reduce_masks = create_cnn_masks(args.num_init_archs)
+    rnn_masks = create_rhn_masks(args.num_init_archs)
 
-    all_masks = generate_random_architectures(args.num_init_archs)
+    supernet_mask = [normal_masks, reduce_masks, rnn_masks]
 
-    normal_masks = []
-    reduce_masks = []
-    rnn_masks = []
-    for sub_arch in all_masks:
-        normal_masks.append(sub_arch[0])
-        reduce_masks.append(sub_arch[1])
-        rnn_masks.append(sub_arch[2])
-
-    supernet_mask = merge(normal_masks, reduce_masks, rnn_masks)
-    supernet_mask = list(supernet_mask)
-    #supernet_mask = merge(cnn_masks, rnn_masks) # die 5 subnets zusammengefügt, damit er 1 großes supernet hat, welches aus den 100 init_samples/subarchitecturen gebildet wurde
-    
-    #switches_normal, switches_reduce, switches_rnn = mask2switch(supernet_mask[0], supernet_mask[1], supernet_mask[2])
-           
-    # create supernet S         
+    #    
     
     multiplier, stem_multiplier = 4, 3
 
@@ -301,9 +320,10 @@ def main():
     supernet_mask = copy.deepcopy(supernet_mask)
     
     # supernet_mask[0]
-    disc_ops_normal = disc_ops_reduce = disc_ops_rhn = [1]
+    disc_ops_normal = disc_ops_reduce = disc_ops_rhn = [1,1]
     runde=0
-    while (len(disc_ops_normal) | len(disc_ops_reduce) | len(disc_ops_rhn) != 0):
+    
+    while (len(disc_ops_normal) | len(disc_ops_reduce) | len(disc_ops_rhn) > 1):
         
         runde += 1
         print(runde)
@@ -313,30 +333,38 @@ def main():
         
         hyperband_results = []
         
-        for i in range(args.num_super_subnets):
-            
-           mask_normal, disc_ops_normal = create_cnn_supersubnet(supernet_mask[0], args.num_disc)
-           mask_reduce, disc_ops_reduce = create_cnn_supersubnet(supernet_mask[1], args.num_disc)
-           mask_rhn, disc_ops_rhn = create_rhn_supersubnet(supernet_mask, args.num_disc)
-            
-           supersubnet_mask = [mask_normal, mask_reduce, mask_rhn]
-            
-           #switches_normal, switches_reduce, switches_rnn = mask2switch(mask_normal, mask_reduce, mask_rhn)
-           
-           # supersubnet_model = one_shot_model.RNNModelSearch(args.seq_size, args.dropouth, args.dropoutx,
-           #                   args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,  
-           #                   True, 0.2, None, args.task, 
-           #                   switches_normal, switches_reduce, switches_rnn, 0.0).to(device)
-           
-           # supersubnet_weights = supersubnet_model.state_dict()
-           
-           # trained_weights = {k: v for k, v in super_model_weights.items() if k in supersubnet_weights}
+        mask_normal, disc_ops_normal = create_cnn_supersubnet(supernet_mask[0], args.num_ops)
+        mask_reduce, disc_ops_reduce = create_cnn_supersubnet(supernet_mask[1], args.num_ops)
+        mask_rhn, disc_ops_rhn = create_rhn_supersubnet(supernet_mask, args.num_ops)
+        
+        supernet_mask = copy.deepcopy(supernet_mask)
+        print(supernet_mask)
+        
+        len_nor = len(disc_ops_normal)  
+        len_red = len(disc_ops_reduce) 
+        len_rhn = len(disc_ops_rhn)   
 
-           # müssen die old weights sein
+        iters = max(len_nor, len_red, len_rhn)
+        
+        # for i in range(args.num_super_subnets):
+        for i in range(iters): # iters=8
+           # i=2
+           disc_nor = disc_ops_normal[i]
+          
+           disc_red = disc_ops_reduce[i]
+         
+           disc_rhn = disc_ops_rhn[i]
+         
+           disc_ops = [disc_nor, disc_red, disc_rhn]
 
-           # supersubnet_weights.update(trained_weights)
-           
-           # supersubnet_model.load_state_dict(supersubnet_weights) 
+           supersubnet_mask = maskout_ops(disc_nor, disc_red, disc_rhn, supernet_mask)
+
+            
+           # mask_normal, disc_ops_normal = create_cnn_supersubnet(supernet_mask[0], args.num_disc)
+           # mask_reduce, disc_ops_reduce = create_cnn_supersubnet(supernet_mask[1], args.num_disc)
+           # mask_rhn, disc_ops_rhn = create_rhn_supersubnet(supernet_mask, args.num_disc)
+            
+           # supersubnet_mask = [mask_normal, mask_reduce, mask_rhn]
 
            # validate the supersubnets using weights from pretrained supernet S
            for epoch in range(1):               
@@ -356,7 +384,7 @@ def main():
                    logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, acc))
                    #valid_acc.append(acc)
                # valid_acc, valid_obj = evaluate_architecture(valid_object, supersubnet_model, criterion, optimizer, epoch) 
-               hyperband_results.append([supersubnet_mask, valid_loss]) # hätten am Ende z.B. 5 hyperband_results
+               hyperband_results.append([disc_ops, valid_loss]) # hätten am Ende z.B. 5 hyperband_results
            
         #try:
         def acc_position(list):
@@ -367,8 +395,9 @@ def main():
         
         # discard the edges and operations from the good performing supersubnets to build new S
         # keep mask with best/highest acc 
-        supernet_mask = hyperband_results[0][0]
-        print(supernet_mask)
+        supernet_mask = create_new_supersubnet(hyperband_results, supernet_mask)
+        
+        # super_model = hyperband_results[0][1]
         
         super_model = one_shot_model.RNNModelSearch(args.seq_size, args.dropouth, args.dropoutx,
                               args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,  
@@ -405,12 +434,6 @@ def main():
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, float(args.budget))
         
         clip_params = [args.conv_clip, args.rhn_clip, args.clip]
-        
-        if runde == 20:
-                    
-            # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, 100)
-            train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, 100)
-    
         
         # now train the remaining supernet S for few epochs (according to budget)
         for epoch in range(args.budget): 
@@ -469,13 +492,15 @@ def main():
             epoch_duration = time.time() - epoch_start
             logging.info('Epoch time: %ds', epoch_duration)
             
-        _, disc_ops_normal = create_cnn_supersubnet(supernet_mask[0], args.num_disc)
-        _, disc_ops_reduce = create_cnn_supersubnet(supernet_mask[1], args.num_disc)
-        _, disc_ops_rhn = create_rhn_supersubnet(supernet_mask, args.num_disc)
+        _, disc_ops_normal = create_cnn_supersubnet(supernet_mask[0], args.num_ops)
+        _, disc_ops_reduce = create_cnn_supersubnet(supernet_mask[1], args.num_ops)
+        _, disc_ops_rhn = create_rhn_supersubnet(supernet_mask, args.num_ops)
            
-        #if (len(disc_ops_normal) | len(disc_ops_reduce) | len(disc_ops_rhn) == 0):
-        #    break
-         
+
+    supernet_mask, hyperband_results = final_stage_run(train_queue, valid_queue, super_model, rhn, conv, criterion, optimizer, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, args.task, supernet_mask, args.budget, args.batch_size)
+
+
+
           
     # hyperband_results.sort(reverse=True, key=acc_position)
     # final/best architecture

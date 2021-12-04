@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 25 20:26:17 2021
+Created on Fri Sep 24 21:46:23 2021
 
 @author: amadeu
 """
@@ -43,6 +43,7 @@ from generalNAS_tools import utils
 # from randomSearch_and_Hyperband_Tools.train_and_validate import train, evaluate_architecture
 from generalNAS_tools.train_and_validate import train, infer
 
+from randomSearch_and_Hyperband_Tools.hb_iteration import hb_step
 
 from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
 
@@ -57,6 +58,8 @@ parser.add_argument('--rhn_lr', type=float, default=2, help='learning rate for C
 parser.add_argument('--rhn_weight_decay', type=float, default=5e-7, help='weight decay for RHN part')
 
 parser.add_argument('--num_steps', type=int, default=2, help='number of iterations per epoch')
+parser.add_argument('--iterations', type=int, default=3, help='number of iterations per epoch')
+
 parser.add_argument('--train_directory', type=str, default='/home/amadeu/Downloads/genomicData/train', help='directory of training data')
 parser.add_argument('--valid_directory', type=str, default='/home/amadeu/Downloads/genomicData/validation', help='directory of validation data')
 parser.add_argument('--test_directory', type=str, default='/home/amadeu/Downloads/genomicData/test', help='directory of test data')
@@ -77,7 +80,7 @@ parser.add_argument('--next_character_prediction', type=bool, default=True, help
 
 parser.add_argument('--num_files', type=int, default=3, help='number of files for training data')
 parser.add_argument('--seq_size', type=int, default=1000, help='sequence length') # 1000
-parser.add_argument('--num_samples', type=int, default=3, help='number of random sampled architectures')
+parser.add_argument('--num_samples', type=int, default=2, help='number of random sampled architectures')
 
 parser.add_argument('--one_clip', type=bool, default=True)
 parser.add_argument('--clip', type=float, default=0.25, help='gradient clipping')
@@ -91,7 +94,9 @@ parser.add_argument('--steps', type=int, default=4, help='total number of Nodes'
 #parser.add_argument('--multiplier', type=int, default=4, help='multiplier')
 #parser.add_argument('--stem_multiplier', type=int, default=3, help='stem multiplier')
 
-parser.add_argument('--epochs', type=int, default=2,
+parser.add_argument('--budget', type=int, default=2,
+                    help='upper epoch limit')
+parser.add_argument('--epochs', type=int, default=10,
                     help='upper epoch limit')
 parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                     help='batch size')
@@ -175,7 +180,7 @@ def main():
         
         import generalNAS_tools.data_preprocessing_TF as dp
         
-        # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+#        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
         train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
 
         criterion = nn.BCELoss().to(device)
@@ -200,19 +205,19 @@ def main():
     count=0
 
     # store metrics of each configuration here
-    # train_losses_all = []
-    # valid_losses_all = []
-    # acc_train_all = []
+    train_losses_all = []
+    valid_losses_all = []
+    acc_train_all = []
     acc_valid_all = []
     
-    # time_per_config = []
+    time_per_config = []
     
-    # for mask, genotype in zip(subnet_masks, genotypes): # iterate over all architectures
+    # initial step
     for mask in random_architectures: # iterate over all architectures
-        
+    
         configuration_start = time.time()
 
-        # mask = random_architectures[0]
+        # mask = random_architectures[1]
         count += 1
         
         genotype = mask2geno(mask)
@@ -221,7 +226,7 @@ def main():
            
         logging.info(genotype)   
 
-        multiplier, stem_multiplier = 4, 3
+        multiplier, stem_multiplier = 4,3
         
         random_model = one_shot_model.RNNModel(args.seq_size, args.dropouth, args.dropoutx,
                             args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,
@@ -251,104 +256,115 @@ def main():
         
         clip_params = [args.conv_clip, args.rhn_clip, args.clip]
         
-        # metrics for a configuration (epoch wise)
-        # train_losses = [] 
-        # train_acc = []
-
-        # valid_losses = []
-        valid_acc = []
-
-        for epoch in range(args.epochs): 
-            # epoch=0
-            logging.info('epoch %d lr %e', epoch, scheduler.get_last_lr()[0])
-            # supernet.drop_path_prob = args.drop_path_prob * epoch / self.epochs
-            # supernet.drop_path_prob = drop_path_prob * epoch / epochs
-    
-            # train_acc, train_obj = train(train_object, random_model, criterion, optimizer, lr, epoch, rhn, conv, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip)
-                                              
-            epoch_start = time.time()
-            
-            lr = scheduler.get_last_lr()[0]
-        
-            labels, predictions, train_loss = train(train_queue, valid_queue, random_model, rhn, conv, criterion, optimizer, None, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=False, task=args.task)
-            
-            scheduler.step()
-    
-            labels = np.concatenate(labels)
-            predictions = np.concatenate(predictions)
-            # train_losses.append(train_loss)
-
-        
-            if args.task == 'next_character_prediction':
-                acc = overall_acc(labels, predictions, args.task)
-                logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
-                # train_acc.append(acc)
-            else:
-                f1 = overall_f1(labels, predictions, args.task)
-                logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
-                # train_acc.append(f1)
-
-        # valid_acc, valid_obj = evaluate_architecture(valid_object, random_model, criterion, optimizer, epoch, args.report_freq, args.num_steps) 
-        labels, predictions, valid_loss = infer(valid_queue, random_model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
-
-        labels = np.concatenate(labels)
-        predictions = np.concatenate(predictions)
-        
-        # valid_losses.append(valid_loss)
-  
-        if args.task == 'next_character_prediction':
-            acc = overall_acc(labels, predictions, args.task)
-            logging.info('| epoch {:3d} | valid acc {:5.2f}'.format(epoch, acc))
-            valid_acc.append(acc)
-
-        else:
-            acc = overall_f1(labels, predictions, args.task)
-            logging.info('| epoch {:3d} | valid f1-score {:5.2f}'.format(epoch, acc))
-            valid_acc.append(acc)
+        train_losses, valid_losses, train_acc, valid_acc, acc = hb_step(train_queue, valid_queue, random_model, rhn, conv, criterion, scheduler, args.batch_size, optimizer, None, None, args.unrolled, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, args.task, args.budget)
                     
-        random_search_results.append((genotype, acc)) # wenn wir z.B. 20 random samples haben, dann hätten wir liste mit 20 elementen
+        random_search_results.append([mask, random_model, optimizer, scheduler, acc]) # wenn wir z.B. 20 random samples haben, dann hätten wir liste mit 20 elementen
           
-        # configuration_end = time.time()
-        # configration_duration = configuration_end - configuration_start
-        # time_per_config.append(configration_duration)
-    
-        # train_losses_all.append(train_losses)
-        # valid_losses_all.append(valid_losses)
-        # acc_train_all.append(train_acc)
+        train_losses_all.append(train_losses)
+        valid_losses_all.append(valid_losses)
+        acc_train_all.append(train_acc)
         acc_valid_all.append(valid_acc)
+        
        
+    # check_opt1 = optimizer
+    # check_opt1.param_groups
+    # check_opt2 = optimizer
+    # check_opt2.param_groups
+
          
     def acc_position(list):
-        return list[1]
+        return list[4]
     
     random_search_results.sort(reverse=True, key=acc_position)
     
-    # final/best architecture
-    genotype = random_search_results[0][0]
+    num_keep_archs = len(random_search_results)//2
     
+    random_architectures=[]
+    for keep in range(num_keep_archs):
+        # print(keep)
+        random_architectures.append(random_search_results[keep])
+        
+    for iters in range(args.iterations):
+        
+        logging.info('| iters {:3d} | num_keep_archs {:5.2f}'.format(iters, num_keep_archs))
+
+        random_search_results = []
+        
+        for archs in enumerate(random_architectures):
+
+            # archs = random_architectures[0]
+            mask = archs[1][0]
+            random_model = archs[1][1]
+            optimizer = archs[1][2]
+            scheduler = archs[1][3]
+            
+            conv = []
+            rhn = []
+            for name, param in random_model.named_parameters():
+                #print(name)
+                #if 'stem' or 'preprocess' or 'conv' or 'bn' or 'fc' in name:
+                if 'rnns' in name:
+                    #print(name)
+                    rhn.append(param)
+                #elif 'decoder' in name:
+                else:
+                    #print(name)
+                    conv.append(param)
+                    
+            train_losses, valid_losses, train_acc, valid_acc, acc = hb_step(train_queue, valid_queue, random_model, rhn, conv, criterion, scheduler, args.batch_size, optimizer, None, None, args.unrolled, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, args.task, args.budget)
+
+            random_search_results.append([mask, random_model, optimizer, scheduler, acc]) # wenn wir z.B. 20 random samples haben, dann hätten wir liste mit 20 elementen
+            train_losses_all.append(train_losses)
+            valid_losses_all.append(valid_losses)
+            acc_train_all.append(train_acc)
+            acc_valid_all.append(valid_acc)
+            
+        def acc_position(list):
+            return list[4]
+
+        random_search_results.sort(reverse=True, key=acc_position)
+
+        num_keep_archs = len(random_search_results)//2
+
+        random_architectures=[]
+        for keep in range(num_keep_archs):
+            # print(keep)
+            random_architectures.append(random_search_results[keep])
+        
+        
+    
+    # final/best architecture
+    final_mask = random_search_results[0][0]
+    
+    genotype = mask2geno(final_mask)
+
     # random_search_file = 'randomSearchResults-{}'.format(args.save)
     # np.save(os.path.join(args.save_dir, random_search_file), random_search_results)
     
     genotype_file = 'random_geno-{}'.format(args.save)
     np.save(os.path.join(args.save_dir, genotype_file), genotype)
     
-    # trainloss_file = 'train_loss-{}'.format(args.save)
-    # np.save(os.path.join(args.save_dir, trainloss_file), train_losses_all)
+    trainloss_file = 'train_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, trainloss_file), train_losses_all)
     
-    # acc_train_file = 'acc_train-{}'.format(args.save)
-    # np.save(os.path.join(args.save_dir, acc_train_file), acc_train_all)
+    acc_train_file = 'acc_train-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, acc_train_file), acc_train_all)
 
-    # time_file = 'time-{}'.format(args.save)
-    # np.save(os.path.join(args.save_dir, time_file), time_per_config)
+    #time_file = 'time-{}'.format(args.save)
+    #np.save(os.path.join(args.save_dir, time_file), time_per_config)
 
     # safe valid data
-    # validloss_file = 'valid_loss-{}'.format(args.save)
-    # np.save(os.path.join(args.save_dir, validloss_file), valid_losses_all)
+    validloss_file = 'valid_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, validloss_file), valid_losses_all)
 
     acc_valid_file = 'acc_valid-{}'.format(args.save)
     np.save(os.path.join(args.save_dir, acc_valid_file), acc_valid_all)
     
 
+# abchecken wie ob er auch wirklich die gewichte übernimmt (indem ich für 5 stück genau in ablage den f1-score mit erstem gewicht abspeichere)
+# files am ende
+# jede iteration printen lassen
+# mask muss noch jedes mal neu, optimizer muss output werden
 
 
 if __name__ == '__main__':
