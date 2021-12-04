@@ -1,3 +1,5 @@
+
+
 import random
 import numpy as np
 import time
@@ -5,67 +7,93 @@ from generalNAS_tools.genotypes import OPS_cnn, OPS_rnn
 
 
 
-# erzeugt glaube ich einfach nur eine random adj matrix 11x11
-def generate_adj():
-    #mat = np.zeros([11, 11]) # erzeugt eine 11x11 Matrix "mat" nur mit 0en (die ersten 2 spalten für cell_t-1 und cell_t-2, 8 weitere spalten, weil jeder Node 2 Inputs bekommt)
-    mat = np.zeros([19, 19]) # erzeugt eine 19x19 Matrix "mat" nur mit 0en (die ersten 2 spalten für cell_t-1 und cell_t-2, 8 weitere spalten, weil 4 CNN Nodes die jeweils 2 Inputs bekommen
-    # und 8 weiter RHN Nodes, welche jeder nur einen Input bekommt
 
-    #mat[:, 10] = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0] # jetzt ist 10te/letzte/11te Spalte von "mat" "[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0]" anstatt nur die 0en
-    # er hat überall 1en wo es Verbindungen gibt: die 8 Zeilen zu denen es 8 Inputs gibt (4 Nodes á 2 Inputs): wrsl brauch er das für diesen global Node
-    # ist einfach nur der OutputNode, welcher Input von allen 4 Nodes erhält
-    #mat[:, 10] = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,0,0,0,0,0,0,0,0] # jetzt ist 10te/letzte/11te Spalte von "mat" "[0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0]" anstatt nur die 0en
 
-    ## Random choices for CNN ##
-    a = random.choice([0, 1]) # 1 random Wert der entweder 0 oder 1 ist
-    b = random.choice([0, 1])
-    c = random.choice([0, 1, [2,3]]) # random choice, aber diesmal entweder 0, 1 oder [2,3]
-    d = random.choice([0, 1, [2,3]])
-    e = random.choice([0, 1, [2,3], [4,5]])  # random choice, aber diesmal entweder 0, 1 oder [2,3] oder [4,5]
-    f = random.choice([0, 1, [2,3], [4,5]])
-    g = random.choice([0, 1, [2,3], [4,5],[6,7]])  # random choice, aber diesmal entweder 0, 1 oder [2,3] oder [4,5] oder [6,7], also 5 inputmöglichkeiten. Wobei er ja bei transform_genotypes 
-    # ja dann die 2,4,,6,8te Zeile löscht
-    h = random.choice([0, 1, [2,3], [4,5], [6,7]])
-    
+
+def generate_adj_rhn():
     ## Random choices for RHN ## 
-    aa = random.choice([[8,9], 10]) # bekommt immer 1ten Input
-    bb = random.choice([[8,9], 10, 11]) 
-    cc = random.choice([[8,9], 10, 11, 12]) # random choice, aber diesmal entweder 0, 1 oder [2,3]
-    dd = random.choice([[8,9], 10, 11, 12, 13])
-    ee = random.choice([[8,9], 10, 11, 12, 13, 14])  # random choice, aber diesmal entweder 0, 1 oder [2,3] oder [4,5]
-    ff = random.choice([[8,9], 10, 11, 12, 13, 14, 15])
-    gg = random.choice([[8,9], 10, 11, 12, 13, 14, 15, 16])  # random choice, aber diesmal entweder 0, 1 oder [2,3] oder [4,5] oder [6,7], also 5 inputmöglichkeiten. Wobei er ja bei transform_genotypes 
-    # ja dann die 2,4,,6,8te Zeile löscht
-    #hh = random.choice([8,9], 10, 11, 12, 13, 14, 15, 16, 17)
-        
+    mat = np.zeros([12, 12])
+    mat[:, 11] = [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+    a = random.choice([2,3])
+    b = random.choice([2, 3, 4])
+    c = random.choice([2, 3, 4, 5])
+    d = random.choice([2, 3, 4, 5, 6])
+    e = random.choice([2, 3, 4, 5, 6, 7])
+    f = random.choice([2, 3, 4, 5, 6, 7, 8])
+    g = random.choice([2, 3, 4, 5, 6, 7, 8, 9])
     
-    # gemäß, den randomchoices von oben werden jetzt 1en an bestimmten stellen für die 0en ausgetauscht/eingesetzt
-    mat[a, 2] = 1  # nur spalte 2 weil spalte 0 und 1 steht für cell_t-1 und cell_t-2 und können nichts empfangen (deswegen auch ersten 2 spalten nur 0en), außerdem
-    # kann spalte 2 (weil Node 0) nur von 1 und 2 empfangen
-    mat[b, 3] = 1 
+    mat[0, 2] = 1
+    mat[1, 2] = 1
+
+    mat[2, 3] = 1
+    
+    mat[a, 4] = 1
+    mat[b, 5] = 1
+    mat[c, 6] = 1
+    mat[d, 7] = 1
+    mat[e, 8] = 1
+    mat[f, 9] = 1
+    mat[g, 10] = 1
+    
+    return mat
+
+
+
+
+
+# erzeugt glaube ich einfach nur eine random adj matrix 11x11
+def generate_adj_cnn():
+    mat = np.zeros([11, 11])
+    mat[:, 10] = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+    a = random.choice([0, 1])
+    b = random.choice([0, 1])
+    c = random.choice([0, 1, [2,3]])
+    d = random.choice([0, 1, [2,3]])
+    e = random.choice([0, 1, [2,3], [4,5]])
+    f = random.choice([0, 1, [2,3], [4,5]])
+    g = random.choice([0, 1, [2,3], [4,5],[6,7]])
+    h = random.choice([0, 1, [2,3], [4,5],[6,7]])
+    mat[a, 2] = 1
+    mat[b, 3] = 1
     mat[c, 4] = 1
     mat[d, 5] = 1
     mat[e, 6] = 1
     mat[f, 7] = 1
     mat[g, 8] = 1
     mat[h, 9] = 1
-    
-    mat[8, 10] = 1  # nur spalte 2 weil spalte 0 und 1 steht für cell_t-1 und cell_t-2 und können nichts empfangen (deswegen auch ersten 2 spalten nur 0en), außerdem
-    # kann spalte 2 (weil Node 0) nur von 1 und 2 empfangen
-    mat[9, 10] = 1 
-    mat[aa, 11] = 1
-    mat[bb, 12] = 1 
-    mat[cc, 13] = 1
-    mat[dd, 14] = 1
-    mat[ee, 15] = 1
-    mat[ff, 16] = 1
-    mat[gg, 17] = 1
-    
-    # output Node receives Input from each 
-    mat[:, 18] = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
-
-    
     return mat
+
+
+def generate_ops_cnn():
+    op_num = len(OPS_cnn)
+    op_matrix = np.zeros((11, op_num))
+#     op_matrix = np.zeros((11, 6))
+    op_matrix[0][0] = 1
+    op_matrix[1][0] = 1
+    for i in range(8):
+        idx = random.choice(list(range(1, op_num-1))) # exclude 'input_cnn' and 'output_cnn' as operation
+        op_matrix[i + 2][idx] = 1
+    op_matrix[10][-1] = 1
+    return op_matrix
+
+
+
+def generate_ops_rhn():
+    op_num = len(OPS_rnn)
+    op_matrix = np.zeros((12, op_num))
+#     op_matrix = np.zeros((11, 6))
+    op_matrix[0][0] = 1
+    op_matrix[1][0] = 1
+    op_matrix[2][1] = 1
+
+    for i in range(8):
+        idx = random.choice(list(range(2, op_num-1)))
+        op_matrix[i + 3][idx] = 1
+    op_matrix[11][-1] = 1
+    return op_matrix
+
+
+
 
 #test = generate_adj() # ergibt 11x11 matrix
 
@@ -108,10 +136,14 @@ def generate_archs(generate_num):
     # es werden zuerst random adj und ops matritzen erzeugt und diese
     # werden dann einfach als dictionary eingespeichert und jedes dictionary bildet ein element einer liste archs
     while cnt < generate_num:
-        adj = generate_adj()
-        ops = generate_ops()
-        if is_valid(adj, ops): # dieser Teil macht meiner meinung nach keinen Sinn
-            arch = {"adjacency_matrix":adj, "operations":ops}
+        adj_cnn = generate_adj_cnn()
+        ops_cnn = generate_ops_cnn()
+        
+        adj_rhn = generate_adj_rhn()
+        ops_rhn = generate_ops_rhn()
+        
+        if is_valid(adj_cnn, ops_cnn): # dieser Teil macht meiner meinung nach keinen Sinn
+            arch = {"adjacency_matrix_cnn":adj_cnn, "operations_cnn":ops_cnn, "adjacency_matrix_rhn":adj_rhn, "operations_rhn":ops_rhn}
             arch_hash = str(hash(str(arch)))
             if arch_hash not in archs_hash:
                 archs.append(arch)
