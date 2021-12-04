@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Sep 19 16:45:52 2021
+
+@author: amadeu
+"""
+
 import torch
 import numpy as np
 from scipy.stats import spearmanr
@@ -16,20 +24,18 @@ def train(model, optimizer, loss, train_loader, epoch):
     model.train()
 
     #iss = []
-    #batches=[]
-    for i_batch, sample_batched in enumerate(train_loader): # bisher wird nur get_item ausgeführt
+    # batches=[]
+    for i_batch, sample_batched in enumerate(train_loader):
+        batches.append(sample_batches)
         #iss.append(i_batch)
         #batches.append(sample_batched)
-        adjs_cnn, features_cnn, adjs_rhn, features_rhn, accuracys = sample_batched['adjacency_matrix_cnn'], sample_batched['operations_cnn'], sample_batched['adjacency_matrix_rhn'], sample_batched['operations_rhn'], \
+        adjs_cnn, features_cnn, adj_rhn, features_rhn, accuracys = sample_batched['adjacency_matrix_cnn'], sample_batched['operations_cnn'], sample_batched['adjacency_matrix_rhn'], sample_batched['operations_rhn'], \
                                     sample_batched['accuracy'].view(-1, 1)
-                                  
-        adjs_cnn, features_cnn, adjs_rhn, features_rhn, accuracys = adjs_cnn.to(device), features_cnn.to(device), adjs_rhn.to(device), features_rhn.to(device), accuracys.to(device) # .cuda()
-#        if i_batch == 1:
-        print('shape_gcn_tensors')
-        print(adjs_cnn.shape)
+                                    
+        adjs_cnn, features_cnn, adj_rhn, features_rhn, accuracys = adjs_cnn.to(device), features_cnn.to(device), adjs_rhn.to(device), features_rhn.to(device), accuracys.to(device)# .cuda()
         optimizer.zero_grad()
         
-        outputs = model(features_cnn, adjs_cnn, features_rhn, adjs_rhn) # feat_cnn, adj_cnn, feat_rhn, adj_rhn,
+        outputs = model(adjs_cnn, features_cnn, adj_rhn, features_rhn)
         loss_train = loss(outputs, accuracys)
         loss_train.backward()
         optimizer.step()
@@ -58,15 +64,16 @@ def validate(model, loss, validation_loader, logging=None):
     model.eval()
     with torch.no_grad():
         for i_batch, sample_batched in enumerate(validation_loader):
-           
+            adjs, features, accuracys = sample_batched['adjacency_matrix'], sample_batched['operations'], \
+                                        sample_batched['accuracy'].view(-1, 1)
                                         
-            adjs_cnn, features_cnn, adjs_rhn, features_rhn, accuracys = sample_batched['adjacency_matrix_cnn'], sample_batched['operations_cnn'], sample_batched['adjacency_matrix_rhn'], sample_batched['operations_rhn'], \
+            adjs_cnn, features_cnn, adj_rhn, features_rhn, accuracys = sample_batched['adjacency_matrix_cnn'], sample_batched['operations_cnn'], sample_batched['adjacency_matrix_rhn'], sample_batched['operations_rhn'], \
                                     sample_batched['accuracy'].view(-1, 1)
                                     
-            adjs_cnn, features_cnn, adjs_rhn, features_rhn, accuracys = adjs_cnn.to(device), features_cnn.to(device), adjs_rhn.to(device), features_rhn.to(device), accuracys.to(device)# .cuda()
+            adjs_cnn, features_cnn, adj_rhn, features_rhn, accuracys = adjs_cnn.to(device), features_cnn.to(device), adjs_rhn.to(device), features_rhn.to(device), accuracys.to(device)# .cuda()
                                         
-            outputs = model(features_cnn, adjs_cnn, features_rhn, adjs_rhn)
-            
+            adjs, features, accuracys = adjs.to(device), features.to(device), accuracys.to(device)# .cuda()
+            outputs = model(features, adjs)
             loss_train = loss(outputs, accuracys)
             count += 1
             difference = torch.mean(torch.abs(outputs - accuracys), 0)
