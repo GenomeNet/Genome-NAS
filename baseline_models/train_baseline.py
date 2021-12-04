@@ -12,7 +12,7 @@ import time
 import glob
 import numpy as np
 import torch
-import utils
+# import utils
 import logging
 import argparse
 import torch.nn as nn
@@ -84,7 +84,7 @@ parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/De
 parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test target data')
 
 # parser.add_argument('--num_motifs', type=int, default=100, help='number of channels') # 320
-parser.add_argument('--model', type=str, default='DanQ', help='path to save the model')
+parser.add_argument('--model', type=str, default='DeepSEA', help='path to save the model')
 parser.add_argument('--save', type=str,  default='bas',
                     help='name to save the labels and predicitons')
 parser.add_argument('--save_dir', type=str,  default='test_danQ',
@@ -142,9 +142,11 @@ def main():
       if (args.model == "DeepSEA"):
           
           import baseline_models.models.DeepSea as model
+          from baseline_models.tain_and_val_deepsea import Train, Valid
+
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
 
-          optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
+          optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=5e-07, momentum=0.9)
         
       
       
@@ -152,13 +154,12 @@ def main():
       
       import generalNAS_tools.data_preprocessing_TF as dp
         
-      # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+#      train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
       train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
 
       num_classes = 919
       
       criterion = nn.BCELoss().to(device)
-
 
       if (args.model == "DanQ"):
           
@@ -166,18 +167,61 @@ def main():
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
           #import baseline_models.models.DanQ_original as model
           #model = model.DanQ(args.seq_size, num_classes).to(device)
+          from baseline_models.tain_and_val_baseline import Train, Valid, Test
+
 
           #optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
 
-          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate, alpha=0.9)
+          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate, alpha=0.9) 
           
-      if (args.model == "DeepSEA"):
+      if (args.model == "DeepSEA"): 
           
           import baseline_models.models.DeepSea as model
+          from baseline_models.tain_and_val_deepsea import Train, Valid, Test
           model = model.NN_class(num_classes, args.batch_size, args.seq_size, args.task).to(device)
-          optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=1e-6, momentum=0.9)
+          optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, weight_decay=5e-07, momentum=0.9)
+          
+      if (args.model == 'NCNet_RR'): 
+                   
+          import baseline_models.models.NCNet_RR_model as model
+          from baseline_models.tain_and_val_baseline import Train, Valid, Test
+          from baseline_models.models.NCNet_RR_model import ResidualBlock
+        
+          # define hyperparameters
+          net_args = {
+            "res_block": ResidualBlock,
+            "seq_size": args.seq_size,
+            "num_classes": num_classes,
+            "batch_size": args.batch_size,
+            "task": args.task
+            }
+          
+          model = model.NCNet_RR(**net_args).to(device)
+                    
+          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate, alpha=0.9)
+          
+          
+      if (args.model == 'NCNet_bRR'): 
+                   
+          import baseline_models.models.NCNet_bRR_model as model
+          from baseline_models.tain_and_val_baseline import Train, Valid, Test
+          from baseline_models.models.NCNet_bRR_model import ProjectionBlock, IdentityBlock
+        
+          # define hyperparameters
+          net_args = {
+            "id_block": IdentityBlock,
+            "pr_block": ProjectionBlock,
+            "seq_size": args.seq_size,
+            "num_classes": num_classes,
+            "batch_size": args.batch_size,
+            "task": args.task
+            }
+          
+          model = model.NCNet_bRR(**net_args).to(device)
+                    
+          optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate, alpha=0.9)
 
-  
+ 
   train_losses = []
   valid_losses = []
   train_acc = []
@@ -186,6 +230,29 @@ def main():
   #all_predictions_valid = []
   time_per_epoch = []
   cnt=0
+  
+  best_loss = float('inf')
+  
+  logging.info("param size = %fMB", utils.count_parameters_in_MB(model))
+  
+  pytorch_total_params = sum(p.numel() for p in model.parameters()) 
+
+  
+  # pytorch_total_params = sum(p.numel() for p in model.parameters()) # 46mio bei danQ; 57mi bei NCNet_RR; 38 mio bei DARTS oneshot model; 22mio bei final archs
+  
+  # mem_params = sum([param.nelement()*param.element_size() for param in model.parameters()])
+  # mem_bufs = sum([buf.nelement()*buf.element_size() for buf in model.buffers()])
+  # mem = mem_params + mem_bufs 
+  
+  # params = []
+  # names = []
+  # numels = []
+  # for name, p in model.named_parameters():
+  #    params.append(p)
+  #    names.append(name)
+  #    numels.append(p.numel()) # 10tes element ist am höchsten und ist fc nach lstm: hat nämlich shape [925,48000] und p.numel davon ist 925*48000(weil 640*75=48.000)= 44.400.000; und diese dinger werden dann eben aufsummiert (bei train_finalArchs sind es 22 mio, weil 925*21504(weil 512*42=21504))=19.891.200
+      
+
 
   for epoch in range(args.epochs):
       # epoch=0
@@ -193,8 +260,8 @@ def main():
       train_start = time.strftime("%Y%m%d-%H%M")
       epoch_start = time.time()
 
-      #train_loss, acc_train_epoch = Train(model, train_queue, optimizer, criterion, device, args.num_steps, args.report_freq)
-      labels, predictions, train_loss = Train(model, train_queue, optimizer, criterion, device, args.num_steps)
+      # train_loss, acc_train_epoch = Train(model, train_queue, optimizer, criterion, device, args.num_steps, args.report_freq)
+      labels, predictions, train_loss = Train(model, train_queue, optimizer, criterion, device, args.num_steps, args.task)
 
       labels = np.concatenate(labels)
       predictions = np.concatenate(predictions)
@@ -214,7 +281,6 @@ def main():
       # np.argmax(predictions, axis=1)
       # np.round(predictions)
 
-      
       #all_predictions_train.append(predictions)
       train_losses.append(train_loss)
       epoch_end = time.time()
@@ -229,7 +295,7 @@ def main():
       
       if epoch % args.report_validation == 0:
           
-          labels, predictions, valid_loss = Valid(model, valid_queue, optimizer, criterion, device, args.num_steps)
+          labels, predictions, valid_loss = Valid(model, valid_queue, optimizer, criterion, device, args.num_steps, args.task)
           
           labels = np.concatenate(labels)
           predictions = np.concatenate(predictions)
@@ -247,44 +313,52 @@ def main():
               logging.info('| epoch {:3d} | val loss {:5.4f}'.format(epoch, valid_loss))
 
               valid_acc.append(f1)
+              
+          
+          if valid_loss < best_loss:
+              best_loss = valid_loss
+              cnt = 0
+          else:
+              cnt += 1
+              print(cnt)
+             
+          valid_losses.append(valid_loss)
            
           # Early stopping
-          if epoch > 0:
-              if (valid_loss+args.improv) < valid_losses[epoch-1]:
-                  cnt = 0
-              else:
-                  cnt += 1
-              print(cnt)
+          #if epoch > 0:
+          #    if (valid_loss+args.improv) < valid_losses[epoch-1]:
+          #        cnt = 0
+          #    else:
+          #        cnt += 1
+          #    print(cnt)
                   
-              if cnt == args.patience:
-                  
-                  valid_losses.append(valid_loss)
-                  torch.save(model, args.model_path)
-                  
-                  trainloss_file = 'train_loss-{}'.format(args.save)
-                  np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
-               
-                  acc_train_file = 'acc_train-{}'.format(args.save)
-                  np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
-
-                  # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
-                  # np.save(predictions__train_file, all_predictions_train)
-  
-                  time_file = 'time-{}'.format(args.save)
-                  np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
-
-                  # safe valid data
-                  validloss_file = 'valid_loss-{}'.format(args.save)
-                  np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
-
-                  acc_valid_file = 'acc_valid-{}'.format(args.save)
-                  np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
-                  break
-                    
-                  
+          if cnt == args.patience:
               
-          valid_losses.append(valid_loss)
-        
+              break
+            
+              # valid_losses.append(valid_loss)
+              # torch.save(model, args.model_path)
+            
+              # trainloss_file = 'train_loss-{}'.format(args.save)
+              # np.save(os.path.join(args.save_dir, trainloss_file), train_losses)
+         
+              # acc_train_file = 'acc_train-{}'.format(args.save)
+              # np.save(os.path.join(args.save_dir, acc_train_file), train_acc)
+
+              # predictions__train_file = '{}-predictions_train-{}'.format(args.save, train_start)
+              # np.save(predictions__train_file, all_predictions_train)
+
+              # time_file = 'time-{}'.format(args.save)
+              # np.save(os.path.join(args.save_dir, time_file), time_per_epoch)
+
+              # safe valid data
+              # validloss_file = 'valid_loss-{}'.format(args.save)
+              # np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+
+              # acc_valid_file = 'acc_valid-{}'.format(args.save)
+              # np.save(os.path.join(args.save_dir, acc_valid_file), valid_acc)
+                    
+                          
          
   torch.save(model, args.model_path)
 
@@ -315,55 +389,57 @@ def main():
 
   train_start = time.strftime("%Y%m%d-%H%M")
   
+  labels, predictions, test_loss = Test(model, test_queue, optimizer, criterion, device, args.num_steps, args.task)
+
+  
   #for epoch in range(args.test_epochs): # 1 epoch has 3000 iterations time 32 batchsize is 96000 samples
   
-  objs = utils.AvgrageMeter()
+  #objs = utils.AvgrageMeter()
   #top1 = utils.AvgrageMeter()
   #top5 = utils.AvgrageMeter()
     
-  total_loss = 0
-  start_time = time.time()
+  #total_loss = 0
+  #start_time = time.time()
     
-  model.eval()
+  #model.eval()
 
-  labels = []
-  predictions = []
-  scores = nn.Softmax()
+  #labels = []
+  #predictions = []
+  #scores = nn.Softmax()
 
-
-  with torch.no_grad():
+  #with torch.no_grad():
         
-      for idx, (inputs, targets) in enumerate(test_queue):
+  #    for idx, (inputs, targets) in enumerate(test_queue):
         
-          input, label = inputs, targets
+  #        input, label = inputs, targets
                
-          input = input.float().to(device)#.cuda()
+  #        input = input.float().to(device)#.cuda()
             
           #label = torch.max(label, 1)[1]
-          label = label.to(device)#.cuda(non_blocking=True)
-          batch_size = input.size(0)
+  #        label = label.to(device)#.cuda(non_blocking=True)
+  #        batch_size = input.size(0)
         
           #if args.task == "TF_bindings":
-          logits = model(input.float()) #, (state_h, state_c))
+  #        logits = model(input.float()) #, (state_h, state_c))
 
-          loss = criterion(logits, label)
+  #        loss = criterion(logits, label)
           #else:
               # label = torch.max(label, 1)[1]
           #logits = model(input.float()) #, (state_h, state_c))
             
-          labels.append(label.detach().cpu().numpy())
-          if args.task == "next_character_prediction":
-              predictions.append(scores(logits).detach().cpu().numpy())
-          else:
-              predictions.append(logits.detach().cpu().numpy())
+  #        labels.append(label.detach().cpu().numpy())
+  #        if args.task == "next_character_prediction":
+  #            predictions.append(scores(logits).detach().cpu().numpy())
+  #        else:
+  #            predictions.append(logits.detach().cpu().numpy())
                 
-          objs.update(loss.data, batch_size)
-    
+  #        objs.update(loss.data, batch_size)
+  #  
           
   labels = np.concatenate(labels)
   predictions = np.concatenate(predictions)
       
-  test_losses.append(objs.avg.detach().cpu().numpy())
+  test_losses.append(test_loss)
   all_labels_test.append(labels)
   all_predictions_test.append(predictions)
       
@@ -376,111 +452,12 @@ def main():
 
   predictions_test_file = 'predictions_test-{}'.format(args.save)
   np.save(os.path.join(args.save_dir, predictions_test_file), all_predictions_test)
-      
-
-      
-    
-
-# train_loader, num_steps = train_queue, 7
-
-def Train(model, train_loader, optimizer, criterion, device, num_steps):
-        
-    objs = utils.AvgrageMeter()
- 
-    total_loss = 0
-    start_time = time.time()
-    
-    labels = []
-    predictions = []
-    scores = nn.Softmax()
-    
-    for idx, (inputs, targets) in enumerate(train_loader):
-        
-        if idx > num_steps:
-            break
-        
-        input, label = inputs, targets
-       
-        model.train()
-
-        input = input.float().to(device)#.cuda()
-        
-        batch_size = input.size(0)
-        
-        optimizer.zero_grad()
-        
-        label = label.to(device)#.cuda(non_blocking=True)
-        logits = model(input.float()) #, (state_h, state_c))
-
-        loss = criterion(logits, label)#.long()) 
-     
-        labels.append(label.detach().cpu().numpy())
-        if args.task == "next_character_prediction":
-            predictions.append(scores(logits).detach().cpu().numpy())
-        else:#if args.task == "TF_bindings"::
-            predictions.append(logits.detach().cpu().numpy())
-
-        loss.backward()
-        optimizer.step()
-                
-        objs.update(loss.data, batch_size)
-       
-    return labels, predictions, objs.avg.detach().cpu().numpy()
-    
-
-
-
-def Valid(model, valid_loader, optimizer, criterion, device, num_steps):
-   
-    objs = utils.AvgrageMeter()
-    #top1 = utils.AvgrageMeter()
-    #top5 = utils.AvgrageMeter()
-    
-    total_loss = 0
-    start_time = time.time()
-    
-    model.eval()
-    
-    labels = []
-    predictions = []
-    scores = nn.Softmax()
-
-
-    with torch.no_grad():
-        
-        for idx, (inputs, targets) in enumerate(valid_loader):
-            
-            
-            if idx > num_steps:
-                break
-        
-            input, label = inputs, targets
-               
-            input = input.float().to(device)#.cuda()
-            
-            #label = torch.max(label, 1)[1]
-            label = label.to(device)#.cuda(non_blocking=True)
-            batch_size = input.size(0)
-        
-            
-            #if args.task == "TF_bindings":
-            logits = model(input.float()) #, (state_h, state_c))
-
-            loss = criterion(logits, label)
-            #else:
-                # label = torch.max(label, 1)[1]
-            #logits = model(input.float()) #, (state_h, state_c))
-            
-            labels.append(label.detach().cpu().numpy())
-            if args.task == "next_character_prediction":
-                predictions.append(scores(logits).detach().cpu().numpy())
-            else:
-                predictions.append(logits.detach().cpu().numpy())
-                
-            objs.update(loss.data, batch_size)
   
-    return labels, predictions, objs.avg.detach().cpu().numpy() #top1.avg, objs.avg
-
+  # 455024/100
+  
+  # 4550*100
+  
+      
 
 if __name__ == '__main__':
   main() 

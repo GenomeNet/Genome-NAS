@@ -40,3 +40,6 @@ precRec['accuracy']
 # train_accuracy per epoch
 train_acc = np.load('acc_train.npy') 
 test_acc = np.load('acc_test.npy')
+
+
+predictions = np.load('EXPsearch-try-20210715-194521-predictions_train-20210715-1945.npy')
