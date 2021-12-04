@@ -18,10 +18,15 @@ import random
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-#dataset=__train_dataset
-#val_dataset=__valset
-#ifPretrained=ifPretrain
-#maxsize=maxsize
+# dataset=__train_dataset
+# val_dataset=__valset
+# ifPretrained=ifPretrain
+# maxsize=maxsize
+# ifsigmoid=True
+# num_epoch=2
+# lr=lr 
+# selected_loss=loss
+ 
 
 
 class NeuralNet(object):
@@ -45,15 +50,20 @@ class NeuralNet(object):
         # dataset = NasDataset(sample=__dataset, maxsize=maxsize)
         # dataset.graph
         val_dataset = NasDataset(sample=self.__val_dataset, maxsize=self.maxsize)
+        # val_dataset = NasDataset(sample=__val_dataset, maxsize=maxsize)
+
         batch_size = 128 # batch_size = 2
         # Creating PT data samplers and loaders:
         train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                                    shuffle=True, num_workers=4, )
         # wird erstmal nur initialisiert; adj und feat wird später eingesetzt
         gcn = GCN(
-            nfeat=len(self.__dataset[0]['operations'][0]) + 1, # nfeat=num_features: anzahl spaltenelemente von operations + 1
+            nfeat_cnn=len(self.__dataset[0]['operations_cnn'][0]) + 1, # nfeat=num_features: anzahl spaltenelemente von operations + 1=7
+            nfeat_rhn=len(self.__dataset[0]['operations_rhn'][0]) + 1, # =8
+
             ifsigmoid=ifsigmoid
         )
+        
         gcn = gcn.to(device)
         gcn = torch.nn.DataParallel(gcn)
         optimizer = optim.Adam(gcn.parameters(),
@@ -61,6 +71,7 @@ class NeuralNet(object):
                                )
         loss = selected_loss
         if self.__val_dataset:
+            
             validation_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size,
                                                             shuffle=True, num_workers=4, )
             

@@ -33,7 +33,8 @@ class LinearRegressor():
     # 
     def train(self):
         dataset = self.__dataset
-        train_X = dataset[0]
+        train_X = dataset[0] # einfach nur X, weil zweites element ist y; müsste shape [4,128]
+        # print(train_X.shape) # [4,128] output of gcn embedding layer
         train_X = train_X.cpu().data.numpy()
         train_Y = dataset[1]
         if self.ifTransformSigmoid:
@@ -55,9 +56,11 @@ class LinearRegressor():
         s = []
         for row in range(test_X.shape[0]):
             x = test_X[row]
+            # print(x.shape) [4,128], output of gcn embedding layer
             s.append((1 / self.beta + np.dot(np.dot(x, XX_inv), x.T)) ** 0.5)
 
         s = np.reshape(np.asarray(s), (test_X.shape[0], 1))
+        
         if fc:
             test_X = torch.from_numpy(test_X).to(device) #.cuda()
             test_pred = fc(test_X)

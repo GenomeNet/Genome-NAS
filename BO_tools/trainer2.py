@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr  7 17:21:29 2021
+Created on Sat Sep 18 17:23:05 2021
 
 @author: amadeu
 """
+
+
+
 
 import numpy as np
 import torch
@@ -38,6 +41,42 @@ import gc
 from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
 from generalNAS_tools.train_and_validate import train, infer
 from randomSearch_and_Hyperband_Tools.utils import mask2geno, mask2switch
+
+
+# import generalNAS_tools.data_preprocessing_new as dp
+
+#   train_supernet_epochs=args.train_supernet_epochs
+#   data_path=os.path.join(local_data_dir, 'data')
+#   super_batch_size=args.super_batch_size#64,
+#   sub_batch_size=args.sub_batch_size#128,
+    
+#   cnn_lr=args.cnn_lr
+#   cnn_weight_decay=args.cnn_weight_decay
+#   rhn_lr=args.rhn_lr
+#   rhn_weight_decay=args.rhn_weight_decay
+#   momentum=args.momentum
+    
+ #   report_freq=args.report_freq
+ #   epochs=args.epochs
+ #   init_channels=args.init_channels#36,
+ #   layers= args.layers#20,
+ #   drop_path_prob=args.drop_path_prob
+ #   seed=0
+ #   grad_clip=args.clip
+ #   parallel=False
+ #   mode=args.mode
+ #   train_directory = args.train_directory
+ #   valid_directory = args.valid_directory
+ #   num_files = args.num_files
+ #   seq_len = args.seq_len
+ #   num_steps = args.num_steps
+ #   next_character_prediction=args.next_character_prediction
+ #   dropouth = args.dropouth
+ #   dropoutx = args.dropoutx
+ #   one_clip = args.one_clip
+ #   clip = args.clip
+ #   conv_clip = args.conv_clip
+ #   rhn_clip = args.rhn_clip 
 
 
 class Trainer:
@@ -176,11 +215,13 @@ class Trainer:
             self.num_classes = 919
 
         
-            #train_loader_super, valid_queue, test_queue = dp.data_preprocessing(self.train_input_directory, self.valid_input_directory, self.test_input_directory, self.train_target_directory, self.valid_target_directory, self.test_target_directory, self.super_batch_size)
-            train_loader_super, valid_queue, test_queue = dp.data_preprocessing(self.train_directory, self.valid_directory, self.test_directory, self.super_batch_size)
+            train_loader_super, valid_queue, test_queue = dp.data_preprocessing(self.train_input_directory, self.valid_input_directory, self.test_input_directory, self.train_target_directory, self.valid_target_directory, self.test_target_directory, self.super_batch_size)
+            # train_loader_super, valid_queue, test_queue = dp.data_preprocessing(train_input_directory, valid_input_directory, test_input_directory, train_target_directory, valid_target_directory, test_target_directory, super_batch_size)
+            # train_loader_super, valid_queue, test_queue = dp.data_preprocessing(self.train_directory, self.valid_directory, self.test_directory, self.super_batch_size)
 
-            # train_loader_sub, valid_loader, test_queue = dp.data_preprocessing(self.train_input_directory, self.valid_input_directory, self.test_input_directory, self.train_target_directory, self.valid_target_directory, self.test_target_directory, self.sub_batch_size)
-            train_loader_sub, valid_loader, test_queue = dp.data_preprocessing(self.train_directory, self.valid_directory, self.test_directory, self.sub_batch_size)
+            train_loader_sub, valid_loader, test_queue = dp.data_preprocessing(self.train_input_directory, self.valid_input_directory, self.test_input_directory, self.train_target_directory, self.valid_target_directory, self.test_target_directory, self.sub_batch_size)
+            # train_loader_sub, valid_loader, test_queue = dp.data_preprocessing(train_input_directory, valid_input_directory, test_input_directory, train_target_directory, valid_target_directory, test_target_directory, sub_batch_size)
+            # train_loader_sub, valid_queue, test_queue = dp.data_preprocessing(self.train_directory, self.valid_directory, self.test_directory, self.sub_batch_size)
             
             self.criterion = nn.BCELoss().to(device)
         
@@ -252,9 +293,10 @@ class Trainer:
         # subnets_cnn = [for subnet[0] in subnets]
         cnn_masks = []
         rnn_masks = []
-        for sub in self.subnet_masks:
-            cnn_masks.append(sub[0])
-            rnn_masks.append(sub[1])
+        for cnn_sub in self.subnet_masks:
+            cnn_masks.append(cnn_sub[0])
+        for rnn_sub in self.subnet_masks:
+            rnn_masks.append(rnn_sub[1])
         
         # supernet_mask = merge(subnet_cnn_masks, subnet_rnn_masks)
 
@@ -262,7 +304,8 @@ class Trainer:
         self.supernet_mask = list(supernet_mask)
         # supernet_mask = merge(cnn_masks, rnn_masks) # die 5 subnets zusammengefügt, damit er 1 großes supernet hat, welches aus den 100 init_samples/subarchitecturen gebildet wurde
     
-        # self.switches_normal, self.switches_reduce, self.switches_rnn = mask2switch(self.supernet_mask[0], self.supernet_mask[0], self.supernet_mask[1])
+        self.switches_normal, self.switches_reduce, self.switches_rnn = mask2switch(self.supernet_mask[0], self.supernet_mask[0], self.supernet_mask[1])
+        # switches_normal, switches_reduce, switches_rnn = mask2switch(supernet_mask[0], supernet_mask[0], supernet_mask[1])
 
         # len(subnet_masks)=5 und len(train_loader_sub)=391: erzeugt also eine list mit 391 elementen die eben immer 0,1,2,3,4 (wegen len(subnet_masks) sind)
         self.iterative_indices = list(islice(cycle(list(range(len(self.subnet_masks)))), len(self.train_loader_sub))) 
@@ -287,7 +330,6 @@ class Trainer:
            else:
                #print(name)
                conv.append(param)
-               
         self.conv = conv
         self.rhn = rhn
         
@@ -307,8 +349,7 @@ class Trainer:
         #optimizer.param_groups[1]['weight_decay'] = rhn_weight_decay
         
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, float(self.epochs))
-        self.clip_params = [self.conv_clip, self.rhn_clip, self.clip]
-
+    
         #params3 = []
         #for param in supernet.named_parameters():
         #    params3.append(param)
@@ -323,24 +364,14 @@ class Trainer:
             supernet.drop_path_prob = self.drop_path_prob * epoch / self.epochs
             # supernet.drop_path_prob = drop_path_prob * epoch / epochs
 
-            labels, predictions, train_loss = self.train(supernet, optimizer, supernet=False)
-            
-            labels = np.concatenate(labels)
-            predictions = np.concatenate(predictions)
-            
-            if self.task == ('next_character_prediction'):
-                acc = overall_acc(labels, predictions, self.task)
-                logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
-                logging.info('| epoch {:3d} | train loss {:5.2f}'.format(epoch, train_loss))
-    
+            if epoch in range(self.train_supernet_epochs): 
+                # train supernet, which contains all subnets 
+                self.train_supernet(supernet, optimizer, epoch)
             else:
-                f1 = overall_f1(labels, predictions, self.task)
-                logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
-                logging.info('| epoch {:3d} | train loss {:5.4f}'.format(epoch, train_loss))
+                self.train(supernet, optimizer, supernet=False)
                
                 
             scheduler.step()
-            
         logging.info("Evaluating subnets ...")
         
         # evaluate subnets with the weights trained with the supernet
@@ -349,30 +380,10 @@ class Trainer:
         return results
 
     def train_supernet(self, model, optimizer, epoch):
-        # from generalNAS_tools.train_and_validate_HB import train, infer
-
-        # labels, predictions, train_loss = train(self.train_loader_super, self.valid_loader, model, self.rhn, self.conv, self.criterion, optimizer, epoch, self.num_steps, self.clip_params, self.report_freq, self.beta, self.one_clip, task=self.task, mask=self.subnet_masks)
-
-        labels, predictions, train_loss = self.train(model, optimizer, supernet=True) # train supernet for one epoch
-        
-        labels = np.concatenate(labels)
-        predictions = np.concatenate(predictions)
-        
-        if self.task == ('next_character_prediction'):
-            acc = overall_acc(labels, predictions, self.task)
-            logging.info('| epoch {:3d} | train acc {:5.2f}'.format(epoch, acc))
-            logging.info('| epoch {:3d} | train loss {:5.2f}'.format(epoch, train_loss))
-
-        else:
-            f1 = overall_f1(labels, predictions, self.task)
-            logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
-            logging.info('| epoch {:3d} | train loss {:5.4f}'.format(epoch, train_loss))
-    
-        if epoch == self.train_supernet_epochs - 1: # evaluate in last epoch
-            # labels, predictions, valid_loss = infer(self.valid_loader, model, self.criterion, self.sub_batch_size, self.num_steps, self.report_freq, task=self.task, mask=self.subnet_masks)
-
-
-            labels, predictions, valid_loss = self.evaluate(model, self.subnet_masks) # evaluate supernet 
+        self.train(model, optimizer, supernet=True) # train supernet for one epoch
+        if epoch == self.train_supernet_epochs - 1: 
+            labels, predictions, valid_loss = self.evaluate(model, self.supernet_mask) # evaluate supernet 
+            
             
             labels = np.concatenate(labels)
             predictions = np.concatenate(predictions)
@@ -391,7 +402,7 @@ class Trainer:
             set_running_statistics(model, self.train_loader_super, self.supernet_mask)
             # set_running_statistics(model, train_loader_super, supernet_mask)
 
-            labels, predictions, valid_loss = self.evaluate(model, self.subnet_masks) # evaluate supernet 
+            labels, predictions, valid_loss = self.evaluate(model, self.supernet_mask) # evaluate supernet 
             labels = np.concatenate(labels)
             predictions = np.concatenate(predictions)
             
@@ -423,11 +434,10 @@ class Trainer:
             for mask, genotype in zip(subnet_masks, genotypes): # er macht 5 iterationen für die 5 genotypes eben
                 # results.append((genotype, top1[s])) # damit ich eine results liste bekomme
                 # s+=1
-                #                 
+                
+                set_running_statistics(supernet_copy, self.train_loader_sub, mask) # für mein search_space muss ich glaube ich nichts ändern, weil
                 # es ja nur BatchNorm betrifft und diese dann bei RHN's gar nicht aktiviert werden
                 # obj, top1, top5 = self.evaluate(supernet_copy, mask) 
-                set_running_statistics(supernet_copy, self.train_loader_sub, mask) # für mein search_space muss ich glaube ich nichts ändern, weil
-
                 labels, predictions, valid_loss = self.evaluate(supernet_copy, mask) # evaluate supernet 
                 
                 # labels, predictions, valid_loss = evaluate(supernet_copy, subnet_masks[1], valid_loader, num_steps, criterion, task, report_freq) # evaluate supernet 
@@ -437,21 +447,20 @@ class Trainer:
                 
                 if self.task == ('next_character_prediction'):
                     acc = overall_acc(labels, predictions, self.task)
-                    #logging.info('| eval {:3d} | val acc {:5.2f}'.format(i, acc))
-                    #logging.info('| eval {:3d} | val loss {:5.2f}'.format(i, valid_loss))
+                    logging.info('| eval {:3d} | val acc {:5.2f}'.format(epoch, acc))
+                    logging.info('| eval {:3d} | val loss {:5.2f}'.format(epoch, valid_loss))
                     logging.info('%s th Arch %s valid %e %f',str(i), str(genotype.normal), valid_loss, acc)
                     results.append((genotype, acc))
         
                 else:
                     f1 = overall_f1(labels, predictions, self.task)
-                    #logging.info('| eval {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
-                    #logging.info('| eval {:3d} | val loss {:5.4f}'.format(epoch, valid_loss)) 
+                    logging.info('| eval {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
+                    logging.info('| eval {:3d} | val loss {:5.4f}'.format(epoch, valid_loss)) 
 
                     logging.info('%s th Arch %s valid %e %f',str(i), str(genotype.normal), valid_loss, f1)
                     # results.append((genotypes[1], f1))
 
                     results.append((genotype, f1))
-                    
                 copy_log_dir()
                 i+=1
         return results
@@ -462,6 +471,7 @@ class Trainer:
         objs = utils.AvgrageMeter()
         #top1 = utils.AvgrageMeter()
         #top2 = utils.AvgrageMeter()
+        model.eval()
              
         total_loss = 0
         labels = []
@@ -469,42 +479,40 @@ class Trainer:
         
         scores = nn.Softmax()
         
-        with torch.no_grad():
-        
-            for step, (input, target) in enumerate(self.valid_loader):
-    
-                if step > self.num_steps:
-                    break
-                
-                # input = input.transpose(1,2).float()
-                input = input.to(device).float()
-                batch_size = input.size(0)
-        
-                target = target.to(device)
-                #target = torch.max(target, 1)[1]
-                hidden = model.init_hidden(batch_size)#.to(device)  
-                
-                model.eval()
-                # sub_mask = random.choice(mask) # subnet_mask enthält ja die adjacency matrizen zu 5 modellen
+        for step, (input, target) in enumerate(self.valid_loader):
 
+            if step > self.num_steps:
+                break
+            
+            # input = input.transpose(1,2).float()
+            #print(input.shape)
+            input = input.to(device).float()
+            batch_size = input.size(0)
+    
+            target = target.to(device)
+            #target = torch.max(target, 1)[1]
+            hidden = model.init_hidden(batch_size)#.to(device)  
+    
+            with torch.no_grad():
+                # print(target)
                 logits, hidden = model(input, hidden, mask)
                 #print(logits)
                 loss = self.criterion(logits, target)
     
-                # prec1, prec5 = utils.accuracy(logits, target, topk=(1, 2))
-                
-                objs.update(loss.data, batch_size)
-                labels.append(target.detach().cpu().numpy())
-                if self.task == "next_character_prediction":
-                    predictions.append(scores(logits).detach().cpu().numpy())
-                else:#if args.task == "TF_bindings"::
-                    predictions.append(logits.detach().cpu().numpy())
-        
-                if step % self.report_freq == 0:
-                    #logging.info('| step {:3d} | val obj {:5.2f} | '
-                    #    'val acc {:8.2f}'.format(step,
-                    #                               objs.avg, top1.avg))
-                    logging.info('| step {:3d} | val obj {:5.2f}'.format(step, objs.avg))
+            # prec1, prec5 = utils.accuracy(logits, target, topk=(1, 2))
+            
+            objs.update(loss.data, batch_size)
+            labels.append(target.detach().cpu().numpy())
+            if self.task == "next_character_prediction":
+                predictions.append(scores(logits).detach().cpu().numpy())
+            else:#if args.task == "TF_bindings"::
+                predictions.append(logits.detach().cpu().numpy())
+    
+            if step % self.report_freq == 0:
+                #logging.info('| step {:3d} | val obj {:5.2f} | '
+                #    'val acc {:8.2f}'.format(step,
+                #                               objs.avg, top1.avg))
+                logging.info('| step {:3d} | val obj {:5.2f}'.format(step, objs.avg))
 
 
         return labels, predictions, objs.avg.detach().cpu().numpy() # top1.avg, objs.avg
@@ -544,7 +552,9 @@ class Trainer:
             #target = torch.max(target, 1)[1]
             target = target.to(device)#.cuda(non_blocking=True)
             batch_size = input.size(0)
-                        
+            
+            hidden = model.init_hidden(batch_size) 
+            
             if self.mode == 'uniform': # in trainer_config wurde mode='random' übergeben
                 mask = self.subnet_masks[iterative_indices[step]] if not supernet else self.supernet_mask
             else:
@@ -558,20 +568,26 @@ class Trainer:
             
             optimizer.zero_grad()
             
-            hidden = model.init_hidden(batch_size) 
-
             logits, hidden, rnn_hs, dropped_rnn_hs  = model(input, hidden, mask, return_h=True)
+         
+            
+            if self.one_clip == True:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), self.clip)
+            else:
+                torch.nn.utils.clip_grad_norm_(self.conv, self.conv_clip)
+                torch.nn.utils.clip_grad_norm_(self.rhn, self.rhn_clip)
+            
             
             raw_loss = self.criterion(logits, target)
             loss = raw_loss
            
             # Temporal Activation Regularization (slowness)
-            #loss = loss + sum(self.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
-            #total_loss += raw_loss.data
+            loss = loss + sum(self.beta * (rnn_h[1:] - rnn_h[:-1]).pow(2).mean() for rnn_h in rnn_hs[-1:])
+            total_loss += raw_loss.data
             loss.backward()
           
             gc.collect()
-            
+
             if self.one_clip == True:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), self.clip)
             else:
@@ -594,6 +610,6 @@ class Trainer:
             #    logging.info('| step {:3d} | train obj {:5.2f}'.format(step, objs.avg))
                 
     
-        return labels, predictions, objs.avg.detach().cpu().numpy() # top1.avg, objs.avg
+        #return labels, predictions, objs.avg.detach().cpu().numpy() # top1.avg, objs.avg
                 
                 
