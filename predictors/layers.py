@@ -6,9 +6,6 @@ from torch.nn.parameter import Parameter
 from torch.nn.modules.module import Module
 import torch.nn.functional as F
 
-# 1ter layer: in_features=nfeat, out_features=size
-# 2ter und alle restlichen layer: in_features=size, out_features=size
-
 
 # es werden im Endeffekt nur die Gewichte initialisiert mit einem shape/Dimension eben gemäß dem anzahl input_features (was von operations abhängt)
 # und out_features welche wir selber definieren
@@ -34,9 +31,9 @@ class GraphConvolution(nn.Module):
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 
-    def forward(self, input_, adj):
-        support = torch.matmul(input_, self.weight)
-        output = torch.bmm(adj, support)
+    def forward(self, input_, adj): # input ist feature_matrix, und adj adjacency_matrix
+        support = torch.matmul(input_, self.weight) # simple matrix product of two tensors
+        output = torch.bmm(adj, support) # batch matrix-matrix product of matrices
         if self.bias is not None:
             return output + self.bias
         else:

@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Sep 19 16:48:16 2021
+
+@author: amadeu
+"""
+
 """Dataloader built for nasbench 101s"""
 from __future__ import print_function, division
 import numpy as np
@@ -27,7 +35,6 @@ class NasDataset(Dataset):
         elif sample is not None: # diese if-loop wird aktiviert, da sample=__dataset
 
             self.graphs = sample 
-            # graphs=__dataset
         else:
             self.graphs = []
         self.train = train
@@ -43,23 +50,13 @@ class NasDataset(Dataset):
 
     """process data """
     def __getitem__(self, graph_id):
-        # print('get_item')
-        adjacency_matrix_cnn = padzero(np.array(self.graphs[graph_id]['adjacency_matrix_cnn'],dtype=np.float32), ifAdj=True, maxsize=self.maxsize)
-        # adjacency_matrix_cnn = padzero(np.array(graphs[graph_id]['adjacency_matrix_cnn'],dtype=np.float32), ifAdj=True, maxsize=self.maxsize)
-        adjacency_matrix_cnn = add_global_node(adjacency_matrix_cnn, ifAdj = True)
-        operations_cnn = padzero(np.array(self.graphs[graph_id]['operations_cnn'],dtype=np.float32), ifAdj=False, maxsize=self.maxsize)
-        operations_cnn = add_global_node(operations_cnn, ifAdj = False)
-        
-        adjacency_matrix_rhn = padzero(np.array(self.graphs[graph_id]['adjacency_matrix_rhn'],dtype=np.float32), ifAdj=True, maxsize=self.maxsize)
-        # adjacency_matrix_rhn = padzero(np.array(graphs[graph_id]['adjacency_matrix_rhn'],dtype=np.float32), ifAdj=True, maxsize=self.maxsize)
-        adjacency_matrix_rhn = add_global_node(adjacency_matrix_rhn, ifAdj = True)
-        operations_rhn = padzero(np.array(self.graphs[graph_id]['operations_rhn'],dtype=np.float32), ifAdj=False, maxsize=self.maxsize)
-        operations_rhn = add_global_node(operations_rhn, ifAdj = False)
-        
+        print('get_item')
+        adjacency_matrix = padzero(np.array(self.graphs[graph_id]['adjacency_matrix'],dtype=np.float32), ifAdj=True, maxsize=self.maxsize)
+        adjacency_matrix = add_global_node(adjacency_matrix, ifAdj = True)
+        operations = padzero(np.array(self.graphs[graph_id]['operations'],dtype=np.float32), ifAdj=False, maxsize=self.maxsize)
+        operations = add_global_node(operations, ifAdj = False)
         accuracy = np.array(self.graphs[graph_id]['metrics'] ,dtype=np.float32)
-        
-        
-        sample = {'adjacency_matrix_cnn': adjacency_matrix_cnn, 'operations_cnn': operations_cnn, 'adjacency_matrix_rhn': adjacency_matrix_rhn, 'operations_rhn': operations_rhn, 'accuracy': accuracy,}
+        sample = {'adjacency_matrix': adjacency_matrix, 'operations': operations, 'accuracy': accuracy,}
         return sample
     
     def normalize(self, mx):

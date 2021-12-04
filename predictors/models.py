@@ -8,41 +8,95 @@ import torch
 # ifsigmoid=ifsigmoid
 # layer_size = 8
 
+# x = torch.rand(1,3)
+
+# embeddings_cnn = torch.rand(1,64)
+# embeddings_rhn = torch.rand(1,64)
+# embeddings = torch.cat((embeddings_cnn, embeddings_rhn), dim=0)
+# embeddings 
+# embeddings = torch.flatten(embeddings, start_dim= 1) 
+
+# fc = torch.nn.Linear(128, 1)
+
+# x = fc(embeddings) # hat shape [1, 1]
+
 
 
 class GCN(nn.Module):
-    def __init__(self, nfeat, ifsigmoid, layer_size = 64):
+    def __init__(self, nfeat_cnn, nfeat_rhn, ifsigmoid, layer_size = 64):
         super(GCN, self).__init__()
         self.ifsigmoid = ifsigmoid
         self.size = layer_size
-        self.gc1 = GraphConvolution(nfeat, self.size)
-        self.gc2 = GraphConvolution(self.size, self.size)
-        self.gc3 = GraphConvolution(self.size, self.size)
-        self.gc4 = GraphConvolution(self.size, self.size)
-        self.bn1 = nn.BatchNorm1d(self.size)
-        self.bn2 = nn.BatchNorm1d(self.size)
-        self.bn3 = nn.BatchNorm1d(self.size)
-        self.bn4 = nn.BatchNorm1d(self.size)
+        
+        # modules of cnn gcn
+        self.gc1_cnn = GraphConvolution(nfeat_cnn, self.size)
+        self.gc2_cnn = GraphConvolution(self.size, self.size)
+        self.gc3_cnn = GraphConvolution(self.size, self.size)
+        self.gc4_cnn = GraphConvolution(self.size, self.size)
+        self.bn1_cnn = nn.BatchNorm1d(self.size)
+        self.bn2_cnn = nn.BatchNorm1d(self.size)
+        self.bn3_cnn = nn.BatchNorm1d(self.size)
+        self.bn4_cnn = nn.BatchNorm1d(self.size)
+        
+        # modules of cnn gcn
+        self.gc1_rhn = GraphConvolution(nfeat_rhn, self.size)
+        self.gc2_rhn = GraphConvolution(self.size, self.size)
+        self.gc3_rhn = GraphConvolution(self.size, self.size)
+        self.gc4_rhn = GraphConvolution(self.size, self.size)
+        self.bn1_rhn = nn.BatchNorm1d(self.size)
+        self.bn2_rhn = nn.BatchNorm1d(self.size)
+        self.bn3_rhn = nn.BatchNorm1d(self.size)
+        self.bn4_rhn = nn.BatchNorm1d(self.size)
+        
+        
         self.sigmoid = nn.Sigmoid()
-        self.fc = nn.Linear(self.size, 1)
+        self.fc = nn.Linear(self.size*2, 1)
         self.init_weights()
 
     def init_weights(self):
-        init.uniform_(self.gc1.weight, a=-0.05, b=0.05)
-        init.uniform_(self.gc2.weight, a=-0.05, b=0.05)
-        init.uniform_(self.gc3.weight, a=-0.05, b=0.05)
-        init.uniform_(self.gc4.weight, a=-0.05, b=0.05)
+        
+        # initialize weights of cnn gcn part
+        init.uniform_(self.gc1_cnn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc2_cnn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc3_cnn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc4_cnn.weight, a=-0.05, b=0.05)
+        
+        # initialize weights of rhn gcn part
+        init.uniform_(self.gc1_rhn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc2_rhn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc3_rhn.weight, a=-0.05, b=0.05)
+        init.uniform_(self.gc4_rhn.weight, a=-0.05, b=0.05)
 
-    def forward(self, feat, adj, extract_embedding=False):
-        x = F.relu(self.bn1(self.gc1(feat, adj).transpose(2, 1)))
+
+    def forward(self, feat_cnn, adj_cnn, feat_rhn, adj_rhn, extract_embedding=False):
+       
+        x = F.relu(self.bn1_cnn(self.gc1_cnn(feat_cnn, adj_cnn).transpose(2, 1))) # feat_cnn have shape [3,12,7] 
         x = x.transpose(1, 2)
-        x = F.relu(self.bn2(self.gc2(x, adj).transpose(2, 1)))
+        x = F.relu(self.bn2_cnn(self.gc2_cnn(x, adj_cnn).transpose(2, 1)))
         x = x.transpose(1, 2)
-        x = F.relu(self.bn3(self.gc3(x, adj).transpose(2, 1)))
+        x = F.relu(self.bn3_cnn(self.gc3_cnn(x, adj_cnn).transpose(2, 1)))
         x = x.transpose(1, 2)
-        x = F.relu(self.bn4(self.gc4(x, adj).transpose(2, 1)))
+        x = F.relu(self.bn4_cnn(self.gc4_cnn(x, adj_cnn).transpose(2, 1)))
         x = x.transpose(1, 2)
-        embeddings = x[:, x.size()[1] - 1, :]
+        embeddings_cnn = x[:, x.size()[1] - 1, :] # [4,64] if we have 4 batches
+        
+        x = F.relu(self.bn1_rhn(self.gc1_rhn(feat_rhn, adj_rhn).transpose(2, 1)))
+        x = x.transpose(1, 2)
+        x = F.relu(self.bn2_rhn(self.gc2_rhn(x, adj_rhn).transpose(2, 1)))
+        x = x.transpose(1, 2)
+        x = F.relu(self.bn3_rhn(self.gc3_rhn(x, adj_rhn).transpose(2, 1)))
+        x = x.transpose(1, 2)
+        x = F.relu(self.bn4_rhn(self.gc4_rhn(x, adj_rhn).transpose(2, 1)))
+        x = x.transpose(1, 2)
+        embeddings_rhn = x[:, x.size()[1] - 1, :] # [4,64]
+        
+        # embeddings_cnn = torch.rand(4,64)
+        # embeddings_rhn = torch.rand(4,64)
+
+        
+        # concatenate both embeddings
+        embeddings = torch.cat((embeddings_cnn, embeddings_rhn), dim=1)
+
         x = self.fc(embeddings)
         if extract_embedding:
             return embeddings
