@@ -2,75 +2,46 @@ import numpy as np
 from opendomain_utils.genotypes import Genotype, PRIMITIVES
 # from GenomNet_MA.genomicNAS_algorithms.train_genomicBONAS import OPS_cnn, OPS_rnn
 from generalNAS_tools.genotypes import OPS_cnn, OPS_rnn
+from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT
 
 
-#data_point['adjacency_matrix'], data_point['operations']) for data_point in
-#                     data_points
+# adj_cnn = data_points[0]["adjacency_matrix_cnn"]
+# ops_cnn = data_points[0]["operations_cnn"]
+# adj_rhn = data_points[0]["adjacency_matrix_rhn"]
+# ops_rhn = data_points[0]["operations_rhn"]
 
-#data_points = init_samples
-
-#adjs, opss = [], []
-
-#for data_point in data_points:
-#   adjs.append(data_point['adjacency_matrix'])
-#   opss.append(data_point['operations'])
-    
-#adj, ops = adjs[0], opss[0]
-
-def transform_Genotype(adj, ops):
-    # 2,3,4 und 5te zeile werden gelöscht. adj matrix nicht mehr 11x11 sonder 7x11 matrix (weil jede cell 4 Nodes hat, brauchen wir 8 edges,)
-    adj = np.delete(adj, 2, axis=0) # axis=0 bedueted zeilenweise, und 2 beduetet 2te zeile wird gelöscht
-    adj = np.delete(adj, 3, axis=0) # zeile 3 wird gelöscht, aber von jetztiger matrix wo schon zeile 2 gelöscht wurde, d.h. die zeile 4 von ursprünglicher matrix wird gelöscht
-    adj = np.delete(adj, 4, axis=0)
-    adj = np.delete(adj, 5, axis=0)
-    cell_cnn = [ 
-        # ops hat shape 11x6, und die ersten 2 lässt er aus, weil die ja schon die 2 Inputs aus vorheriger cell bekommen
-        # dann greift er von zeile 2 bis 9 zu weil 8 edges
-        (OPS_cnn[np.nonzero(ops[2])[0][0]], np.nonzero(adj[:, 2])[0][0]), 
-        ## np.nonzero(ops[2])[0][0]] zeigt einfach nur von 2ter Zeile von ops an, an welcher Stelle die 1 steht
-           # an der Stelle wo die 1 steht, an der Stelle ziehen wir uns OPS (deshalb hat ops 6 spalten, weil wir auch 6 Elemente in OPS haben)
-           # -> somit bestimmem wir unsere operation
-           # output z.B.: 'dil_conv_3x3'
-        
-        ## np.nonzero(adj[:, 2])[0][0] zeigt einfach nur von 2ter Spalte von adj an, an welcher Stelle die 1 steht
-            # gibt dann einfach die Zahl zurück
-            # somit bestimmen wir von welchem Node er die Edge bekommt
-            # output z.B.: 1
-            
-        ## wird dann beides einfach zusammengefügt: hätten dann also als ersten Wert in cell: ('dil_conv_3x3', 1)
-        (OPS_cnn[np.nonzero(ops[3])[0][0]], np.nonzero(adj[:, 3])[0][0]),
-        (OPS_cnn[np.nonzero(ops[4])[0][0]], np.nonzero(adj[:, 4])[0][0]),
-        (OPS_cnn[np.nonzero(ops[5])[0][0]], np.nonzero(adj[:, 5])[0][0]),
-        (OPS_cnn[np.nonzero(ops[6])[0][0]], np.nonzero(adj[:, 6])[0][0]),
-        (OPS_cnn[np.nonzero(ops[7])[0][0]], np.nonzero(adj[:, 7])[0][0]),
-        (OPS_cnn[np.nonzero(ops[8])[0][0]], np.nonzero(adj[:, 8])[0][0]),
-        (OPS_cnn[np.nonzero(ops[9])[0][0]], np.nonzero(adj[:, 9])[0][0]),
+def transform_Genotype(adj_cnn, ops_cnn, adj_rhn, ops_rhn):
+    # delete row 2,4,6,8 (because we have two of each)
+    adj_cnn = np.delete(adj_cnn, 2, axis=0)
+    adj_cnn = np.delete(adj_cnn, 3, axis=0)
+    adj_cnn = np.delete(adj_cnn, 4, axis=0)
+    adj_cnn = np.delete(adj_cnn, 5, axis=0)
+    cell_cnn = [
+        # node 1
+        (OPS_cnn[np.nonzero(ops_cnn[2])[0][0]], np.nonzero(adj_cnn[:, 2])[0][0]), # second row of ops_cnn correspond to first input operation of node1; second column of adj_cnn correspond to first input of node 1
+        (OPS_cnn[np.nonzero(ops_cnn[3])[0][0]], np.nonzero(adj_cnn[:, 3])[0][0]), # third row of ops_cnn correspond to second input operation of node1; third column of adj_cnn correspond to second input of node 1
+        # node 2
+        (OPS_cnn[np.nonzero(ops_cnn[4])[0][0]], np.nonzero(adj_cnn[:, 4])[0][0]),
+        (OPS_cnn[np.nonzero(ops_cnn[5])[0][0]], np.nonzero(adj_cnn[:, 5])[0][0]),
+        # node 3
+        (OPS_cnn[np.nonzero(ops_cnn[6])[0][0]], np.nonzero(adj_cnn[:, 6])[0][0]),
+        (OPS_cnn[np.nonzero(ops_cnn[7])[0][0]], np.nonzero(adj_cnn[:, 7])[0][0]),
+        # node 4
+        (OPS_cnn[np.nonzero(ops_cnn[8])[0][0]], np.nonzero(adj_cnn[:, 8])[0][0]),
+        (OPS_cnn[np.nonzero(ops_cnn[9])[0][0]], np.nonzero(adj_cnn[:, 9])[0][0]),
     ]
     
+    
     cell_rnn = [ 
-        # ops hat shape 11x6, und die ersten 2 lässt er aus, weil die ja schon die 2 Inputs aus vorheriger cell bekommen
-        # dann greift er von zeile 2 bis 9 zu weil 8 edges
-        # überspringe zeile 10 so wie ich ja auch bei CNN Zeile 0 und 1 überspringe (weil Input operation)
-        (OPS_rnn[np.nonzero(ops[10])[0][0]-5], np.nonzero(adj[:, 10])[0][0]-5), 
-        ## np.nonzero(ops[10])[0][0]] zeigt einfach nur 10te Zeile von ops an, an welcher Stelle die 1 steht
-           # an der Stelle wo die 1 steht, an der Stelle ziehen wir uns OPS (deshalb hat ops 6 spalten, weil wir auch 6 Elemente in OPS haben)
-           # -> somit bestimmem wir unsere operation
-           # output z.B.: 'dil_conv_3x3'
-        
-        ## np.nonzero(adj[:, 2])[0][0] zeigt einfach nur von 2ter Spalte von adj an, an welcher Stelle die 1 steht
-            # gibt dann einfach die Zahl zurück
-            # somit bestimmen wir von welchem Node er die Edge bekommt
-            # output z.B.: 1
-            
-        ## wird dann beides einfach zusammengefügt: hätten dann also als ersten Wert in cell: ('dil_conv_3x3', 1)
-        
-        (OPS_rnn[np.nonzero(ops[11])[0][0]-5], np.nonzero(adj[:, 11])[0][0]-5), # bei ops 5 abziehen, weil es 5 CNN ops gibt (spalten 0-4); bei input 5 abziehen, weil es 5 nodes gibt (0-4 zeilen von adj) cellt-1, cellt-2, Node0, Node1, Node2 und von Node3 bekommt RHN ja schon input
-        (OPS_rnn[np.nonzero(ops[12])[0][0]-5], np.nonzero(adj[:, 12])[0][0]-5),
-        (OPS_rnn[np.nonzero(ops[13])[0][0]-5], np.nonzero(adj[:, 13])[0][0]-5),
-        (OPS_rnn[np.nonzero(ops[14])[0][0]-5], np.nonzero(adj[:, 14])[0][0]-5),
-        (OPS_rnn[np.nonzero(ops[15])[0][0]-5], np.nonzero(adj[:, 15])[0][0]-5),
-        (OPS_rnn[np.nonzero(ops[16])[0][0]-5], np.nonzero(adj[:, 16])[0][0]-5),
-        (OPS_rnn[np.nonzero(ops[17])[0][0]-5], np.nonzero(adj[:, 17])[0][0]-5),
+      
+        (OPS_rnn[np.nonzero(ops_rhn[3])[0][0]], np.nonzero(adj_rhn[:, 3])[0][0]-2), # need to subtract 2, because intermediate node receives both input nodes
+        (OPS_rnn[np.nonzero(ops_rhn[4])[0][0]], np.nonzero(adj_rhn[:, 4])[0][0]-2), 
+        (OPS_rnn[np.nonzero(ops_rhn[5])[0][0]], np.nonzero(adj_rhn[:, 5])[0][0]-2),
+        (OPS_rnn[np.nonzero(ops_rhn[6])[0][0]], np.nonzero(adj_rhn[:, 6])[0][0]-2),
+        (OPS_rnn[np.nonzero(ops_rhn[7])[0][0]], np.nonzero(adj_rhn[:, 7])[0][0]-2),
+        (OPS_rnn[np.nonzero(ops_rhn[8])[0][0]], np.nonzero(adj_rhn[:, 8])[0][0]-2),
+        (OPS_rnn[np.nonzero(ops_rhn[9])[0][0]], np.nonzero(adj_rhn[:, 9])[0][0]-2),
+        (OPS_rnn[np.nonzero(ops_rhn[10])[0][0]], np.nonzero(adj_rhn[:, 10])[0][0]-2),
     ]
     
     ft_model = Genotype(
@@ -83,49 +54,79 @@ def transform_Genotype(adj, ops):
     )
     return ft_model
 
+
+# genotype = genotypes[1]
 def transform_matrix(genotype):
+    # cnn part
     normal = genotype.normal
     node_num = len(normal)+3
-    adj = np.zeros((node_num, node_num))
-    ops = np.zeros((node_num, len(OPS)))
+    adj_cnn = np.zeros((node_num, node_num))
+    ops_cnn = np.zeros((node_num, len(OPS_cnn)))
     for i in range(len(normal)):
         op, connect = normal[i]
         if connect == 0 or connect==1:
-            adj[connect][i+2] = 1
+            adj_cnn[connect][i+2] = 1
         else:
-            adj[(connect-2)*2+2][i+2] = 1
-            adj[(connect-2)*2+3][i+2] = 1
-        ops[i+2][OPS.index(op)] = 1
-    adj[2:-1, -1] = 1
-    ops[0:2, 0] = 1
-    ops[-1][-1] = 1
-    return adj, ops
+            adj_cnn[(connect-2)*2+2][i+2] = 1
+            adj_cnn[(connect-2)*2+3][i+2] = 1
+        ops_cnn[i+2][OPS_cnn.index(op)] = 1
+    
+    adj_cnn[2:-1, -1] = 1 # output node, connected to all 8 previous node
+    ops_cnn[0:2, 0] = 1 # input operation
+    ops_cnn[-1][-1] = 1 # output operation
+    
+     # rhn part
+    rnn = genotype.rnn
+    node_num = len(rnn)+4
+    adj_rnn = np.zeros((node_num, node_num))
+    ops_rnn = np.zeros((node_num, len(OPS_rnn)))
+    for i in range(len(rnn)):
+        op, connect = rnn[i]
+        
+        adj_rnn[connect+2][i+3] = 1
+        
+        ops_rnn[i+3][OPS_rnn.index(op)] = 1
+    
+    adj_rnn[3:-1, -1] = 1 # output node, connected to all 8 previous node
+    adj_rnn[0:2, 2] = 1 # output node, connected to all 8 previous node
+
+    ops_rnn[0:2, 0] = 1 # input operation
+    ops_rnn[2, 1] = 1 # intermediate operation
+    ops_rnn[-1][-1] = 1 # output operation
+    return adj_cnn, ops_cnn, adj_rnn, ops_rnn
 
 def geno_to_archs(genotypes, ei_scores=None):
     # print(genotypes)
     archs = []
     for i in range(len(genotypes)):
+        # i = 0
         if isinstance(genotypes, str):
-            adj, op = transform_matrix(eval(genotypes[i]))
+            adj_cnn, ops_cnn, adj_rnn, ops_rnn = transform_matrix(eval(genotypes[i]))
         else:
-            adj, op = transform_matrix(genotypes[i])
+            adj_cnn, ops_cnn, adj_rnn, ops_rnn = transform_matrix(genotypes[i])
+            
         if ei_scores:
-            datapoint = {'adjacency_matrix': adj, 'operations': op, 'metrics': ei_scores[i]}
+            
+            datapoint = {'adjacency_matrix_cnn': adj_cnn, 'operations_cnn': ops_cnn, 'adjacency_matrix_rhn': adj_rnn, 'operations_rhn': ops_rnn, 'metrics': ei_scores[i]}
+       
         else:
-            datapoint = {'adjacency_matrix': adj, 'operations': op}
+            
+            datapoint = {'adjacency_matrix_cnn': adj_cnn, 'operations_cnn': ops_cnn, 'adjacency_matrix_rhn': adj_rnn, 'operations_rhn': ops_rnn}
+            
         archs.append(datapoint)
+        
     return archs
 
 def geno2mask(genotype):
     des = -1
-    mask = np.zeros((14, 8))
+    mask = np.zeros((14, 9))
     
     op_names, indices = zip(*genotype.normal)
     for cnt, (name, index) in enumerate(zip(op_names, indices)):
         if cnt % 2 == 0:
             des += 1
             total_state = sum(i+2 for i in range(des))
-        op_idx = PRIMITIVES.index(name)
+        op_idx = PRIMITIVES_cnn.index(name)
         node_idx = index + total_state
         mask[node_idx, op_idx] = 1
     print(mask)
