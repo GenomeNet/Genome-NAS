@@ -29,6 +29,18 @@ OPS = {
   'conv_15' : lambda C, stride, affine: NorConv(C, C, 15, stride, affine=affine),
   }
 
+# fc = torch.nn.Identity(2,2)
+#for name, param in fc.named_parameters():
+#        print(name)
+#        print(param.shape)
+        #if 'stem' or 'preprocess' or 'conv' or 'bn' or 'fc' in name:
+#        if 'rnns' in name:
+            #print(name)
+#            rhn.append(param)
+        #elif 'decoder' in name:
+#        else:
+            #print(name)
+#            conv.append(param)
 
 # to check for the pooling layers
 
@@ -286,3 +298,6 @@ class FactorizedReduce(nn.Module):
     #out = torch.cat([self.conv_1(x), self.conv_2(x[:,:,1:,1:])], dim=1) 
     out = self.bn(out)
     return out
+
+
+

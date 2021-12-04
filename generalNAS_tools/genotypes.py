@@ -53,7 +53,9 @@ CONCAT = 8
 
 
 
-OPS_cnn = ['input_cnn', 'max_pool_5', 'skip_connect', 'sep_conv_14', 'dil_conv_14']
+OPS_cnn = ['input_cnn', 'max_pool_5', 'skip_connect', 'sep_conv_15', 'dil_conv_15', 'output_cnn']
+
+
 # for my RHN I allow "none" operation
-OPS_rnn = ['tanh', 'identity', 'sigmoid', 'relu', 'output_rnn']
+OPS_rnn = ['input_rhn', 'intermediate', 'tanh', 'identity', 'sigmoid', 'relu', 'output_rhn']
 

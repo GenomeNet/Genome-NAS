@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Aug 12 16:55:54 2021
+Created on Thu Sep  9 08:23:43 2021
 
 @author: amadeu
 """
+
 
 
 import argparse
@@ -40,6 +41,7 @@ import generalNAS_tools.data_preprocessing_new as dp
 from generalNAS_tools.train_and_validate import train, infer
 
 import darts_tools.cnn_eval
+from generalNAS_tools.utils import scores_perClass, scores_Overall, pr_aucPerClass, roc_aucPerClass, overall_acc, overall_f1
 
 
 
@@ -77,6 +79,9 @@ parser.add_argument('--rhn_clip', type=float, default=0.25, help='gradient clipp
 parser.add_argument('--init_channels', type=int, default=8, help='num of init channels') # args.C, args.num_classes, args.layers, args.steps=4, args.multiplier=4, args.stem_multiplier=3
 parser.add_argument('--steps', type=int, default=4, help='total number of Nodes')
 
+parser.add_argument('--epochs', type=int, default=2,
+                    help='upper epoch limit')
+
 parser.add_argument('--batch_size', type=int, default=2, metavar='N',
                     help='batch size')
 #parser.add_argument('--num_runs', type=int, default=2, metavar='N',
@@ -95,10 +100,12 @@ parser.add_argument('--cuda', action='store_false',
                     help='use CUDA')
 parser.add_argument('--log-interval', type=int, default=50, metavar='N',
                     help='report interval')
-parser.add_argument('--save', type=str,  default='EXP',
+
+parser.add_argument('--save', type=str,  default='testen',
                     help='path to save the final model')
 parser.add_argument('--save_dir', type=str,  default='lr8_nodrop',
                     help='path to save the labels and predicitons')
+
 parser.add_argument('--alpha', type=float, default=0,
                     help='alpha L2 regularization on RNN activation (alpha = 0 means no regularization)')
 parser.add_argument('--beta', type=float, default=1e-3,
@@ -127,7 +134,7 @@ parser.add_argument('--arch', type=str, default='DARTS', help='which architectur
 parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path probability')
 parser.add_argument('--report_freq', type=float, default=1000, help='report frequency')
 parser.add_argument('--note', type=str, default='try', help='note for this run')
-parser.add_argument('--model', type=str, default='/home/amadeu/Desktop/GenomNet_MA/NAS_results/pdarts_finalArchs/pdarts_finalArch_1.pth', help='path to trained model')
+parser.add_argument('--model', type=str, default='/home/amadeu/Desktop/GenomNet_MA/nodrop_rhn8.pth', help='path to trained model')
 args = parser.parse_args()
 
 
@@ -171,7 +178,7 @@ def main():
       
         import generalNAS_tools.data_preprocessing_TF as dp
         
-#        train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+        #train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
         train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
 
         
@@ -182,66 +189,42 @@ def main():
 
     model = torch.load(args.model)
     
-    test_losses = []
-    all_labels_test = []
-    all_predictions_test = []
+    valid_losses = []
+    valid_acc = []
 
-    train_start = time.strftime("%Y%m%d-%H%M")
-    
-    objs = utils.AvgrageMeter()
-    
-    total_loss = 0
-    start_time = time.time()
-    
-    model.eval()
-
-    labels = []
-    predictions = []
-    scores = nn.Softmax()
-
-
-    for step, (input, target) in enumerate(test_queue):
+    for epoch in range(args.epochs):
+        # epoch=0
+                    
+        labels, predictions, valid_loss = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
+          
+        labels = np.concatenate(labels)
+        predictions = np.concatenate(predictions)
         
-        #if step > args.num_steps:
-        #    break
-        
-        # input = input.transpose(1,2).float()
-        input = input.to(device).float()
-        batch_size = input.size(0)
+        if args.task == ('next_character_prediction'):
+            acc = overall_acc(labels, predictions, args.task)
+            logging.info('| epoch {:3d} | val acc {:5.2f}'.format(epoch, acc))
+            logging.info('| epoch {:3d} | val loss {:5.2f}'.format(epoch, valid_loss))
 
-        target = target.to(device)
-        #target = torch.max(target, 1)[1]
-        hidden = model.init_hidden(batch_size)#.to(device)  
+            valid_acc.append(acc)
 
-        with torch.no_grad():
-            logits, hidden = model(input, hidden)
-            loss = criterion(logits, target)
+        else:
+            f1 = overall_f1(labels, predictions, args.task)
+            logging.info('| epoch {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
+            logging.info('| epoch {:3d} | val loss {:5.4f}'.format(epoch, valid_loss))
 
-        # prec1, prec5 = utils.accuracy(logits, target, topk=(1, 2))
-        
-        objs.update(loss.data, batch_size)
-        labels.append(target.detach().cpu().numpy())
-        if args.task == "next_character_prediction":
-            predictions.append(scores(logits).detach().cpu().numpy())
-        else:#if args.task == "TF_bindings"::
-            predictions.append(logits.detach().cpu().numpy())
-            
-    labels = np.concatenate(labels)
-    predictions = np.concatenate(predictions)
+            valid_acc.append(f1)
+
       
-    test_losses.append(objs.avg.detach().cpu().numpy())
-    all_labels_test.append(labels)
-    all_predictions_test.append(predictions)
-      
+        valid_losses.append(valid_loss)
+    
 
-    testloss_file = 'test_loss-{}'.format(args.save)
-    np.save(os.path.join(args.save_dir, testloss_file), test_losses)
+    validloss_file = 'valid_loss-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, validloss_file), valid_losses)
+    
+    validacc_file = 'valid_acc-{}'.format(args.save)
+    np.save(os.path.join(args.save_dir, validacc_file), valid_acc)
 
-    labels_test_file = 'labels_test-{}'.format(args.save)
-    np.save(os.path.join(args.save_dir, labels_test_file), all_labels_test)
-
-    predictions_test_file = 'predictions_test-{}'.format(args.save)
-    np.save(os.path.join(args.save_dir, predictions_test_file), all_predictions_test)
+   
     
     
 if __name__ == '__main__':

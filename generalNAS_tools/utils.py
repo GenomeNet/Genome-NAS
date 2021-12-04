@@ -95,8 +95,6 @@ def scores_Overall(labels, predictions, task):
     return precision, recall, f1, accuracy
 
 
-
-
 def overall_acc(labels, predictions, task):
     if task=='TF_bindings':
         
@@ -107,6 +105,7 @@ def overall_acc(labels, predictions, task):
     accuracy = accuracy_score(labels, predictions) ###########
     
     return accuracy
+
 
 def overall_f1(labels, predictions, task):
     if task=='TF_bindings':
@@ -151,8 +150,12 @@ def roc_aucPerClass(labels, predictions, task):
         num_classes = len(labels[1])
 
         for i in range(num_classes):
-            # i=7
-            roc_auc_scores[i] = roc_auc_score(labels[:,i], predictions[:,i])
+            print(i)
+            try:
+                roc_auc_scores[i] = roc_auc_score(labels[:,i], predictions[:,i])
+            except ValueError:
+                pass
+            
     else:
         labels = label_binarize(labels, classes=[0, 1, 2, 3])
         num_classes = labels.shape[1]
@@ -215,15 +218,6 @@ def roc_aucPerClass(labels, predictions, task):
 #        )
 
 #    roc_auc_score = roc_auc_score(testy, pos_probs)
-
-    
-    
-
-
-
-
-
-
 
 
 class AvgrageMeter(object):

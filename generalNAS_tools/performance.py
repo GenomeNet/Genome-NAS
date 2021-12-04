@@ -1,148 +1,215 @@
-f#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 26 16:11:24 2020
 
-@author: amadeu
-"""
-
-import pandas as pd
 import numpy as np
-import sklearn
-import pandas as pd
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-import math
 import torch
+import torch.nn as nn
+import torch.utils
 
-
-
-## BONAS results
-
-import pickle
-
-
-with open('/home/amadeu/trained_results/supermodel_random_100/trained_models.pkl', 'rb') as f:
-    results = pickle.load(f)
-    
-res = results[0]["genotype"]
-
-
-
-# get accuracy per number of samples
-
-
-accs=[]
-number_of_samples = []
-genotypes = []
-s=1
-for result in results:
-    accs.append(result["metrics"]) # y-axis
-    number_of_samples.append(s)
-    genotypes.append(result["genotype"])
-    s+=1
-    
-    
-gene = genotypes[0]
-gene2 = genotypes[5]
-
-concat = range(2,6)
-gene2[1] = concat
-
-genotype = [gene2[0], concat, gene2[2], concat, gene2[4], gene2[5]] # so sollte ich es jetzt an trainfinalArch übergeben können
-
-
-# die listen hätten dann 1000 elemente. müsste dann noch den mean von 0:100, 100:200, ..., 900:1000 bilden (bzw. boxplot dazu) 
-    
-
-
-# get final architecture, to evaluate this final arch
-
-max_acc=0
-for i in range(len(results)):
-    # i = 0
-    # if-schleife nur True wenn neues bestes model
-    if accs[i] > max_acc: # max_acc wird als 0 initialisiert, aber jetzt überschrieben mit neuem max_acc
-        max_acc = accs[i] # neue max_acc wird überschrieben -> bestes model 
-        genotype = genotypes[i] # genotype vom besten model wird überschrieben
-
-# save genotype as np.array, same as in DARTS  
-
-
-## DARTS results
-
-# genotype_file ='/home/amadeu/anaconda3/envs/EXPsearch-try-20210620-144357-pdarts_geno.npy'
-# genotype = np.load(genotype_file, allow_pickle=True)
-
-
-
-
-train_loss = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/model_results/dilconv_sepconvs/stateless-train_loss-20210430-1616.npy')
-valid_loss = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/model_results/2normalconvs/stateless-valid_loss-20210430-1842.npy')
-
-
-import matplotlib.pyplot as plt
-plt.plot(valid_loss, label='valid_loss')
-plt.title('Cross-Entropy Loss')
-#plt.ylim(1.36, 1.39)
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
-
-
-### Precision Recall, Confusion matrix
-
-# acc_train = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/model_results/2normalconvs/stateless-acc_train-20210430-1842.npy')
-# acc_valid = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/model_results/2normalconvs/stateless-acc_valid-20210430-1842.npy')
-
-
-
-acc_train = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/fin-archsearch-20210516-143441-acc_train-20210516-2038.npy')
-acc_valid = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/fin-archsearch-20210516-143441-acc_valid-20210516-2038.npy')
-
-#acc_val = np.zeros(15)
-#acc_val[0:5] = acc_valid[0]
-#acc_val[5:10] = acc_valid[1]
-#acc_val[10:15] = acc_valid[2]
-
-plt.plot(acc_train, label='acc_train')
-plt.plot(4,0.336,'ro', label = 'acc_val') 
-plt.plot(9,0.3666,'ro') 
-plt.plot(14,0.3683,'ro') 
-#plt.ylim(1.36, 1.39)
-plt.legend(bbox_to_anchor=(1.05, 1), loc='lower right', borderaxespad=0.)
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.savefig("plot", dpi= 300)
-
-
-
-
-
-
-# confusion-matrix & precision_recall
-cm = confusion_matrix(y_pred, y_true)
-precRec = classification_report(y_pred, y_true, output_dict=True)
-precRec['accuracy']
-
-
-# train_accuracy per epoch
-train_acc = np.load('acc_train.npy') 
-test_acc = np.load('acc_test.npy')
-
-
-
-import pandas as pd
+import os
 import numpy as np
-import sklearn
-import pandas as pd
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
+
+
+
+
+
+result_folder = '/home/amadeu/Desktop/GenomNet_MA/NAS_results/search/cws_darts_search(drop_scip)/darts_cws_geno-cws_darts_4.npy'
+geno = np.load(result_folder, allow_pickle=True)
+print(geno)
+
+def create_boxplot(result_folder, epochs=20):
+ 
+    all_folder = os.listdir(result_folder) # list of all 9 configs
+    all_val_losses = []
+    names = []
+    cnts = []
+    cnt=0
+    for sub_folder in all_folder: # iterate over the folders of the 9 configs
+        # print(os.path.join(result_folder, sub_folder))
+        config_file = os.path.join(result_folder, sub_folder)
+        files_perConfig = os.listdir(config_file)
+        config_val_losses = []
+        for sub_file in files_perConfig: # iterate over all files from a config
+        
+            if 'valid_loss' in sub_file:
+                val_loss = np.load(os.path.join(config_file, sub_file), allow_pickle=True)
+                val_loss = val_loss.astype('float64')
+                config_val_losses.append(val_loss[epochs-1])
+                #train_loss = torch.Tensor(train_loss)
+                #train_loss = train_loss.detach().cpu().numpy()
+        
+        all_val_losses.append(config_val_losses)
+        names.append(sub_folder)
+        cnt +=1
+        cnts.append(cnt)
+        
+    plt.boxplot(all_val_losses)
+    plt.xticks(cnts, names)
+    
+create_boxplot(result_folder, 20)
+        
+
+
+
+from numpy import *
 import math
-import torch
+import matplotlib.pyplot as plt
+
+result_folder = '/home/amadeu/Desktop/GenomNet_MA/NAS_results/cws_finalArchs'
 
 
-random_search_results = np.load('/home/amadeu/anaconda3/envs/GenomNet_MA/genomicsRandomSearch/EXPsearch-try-20210606-120323-randomSearchResults.npy', allow_pickle=True)
+val_loss1 = np.load(os.path.join(result_folder, 'valid_loss-cws_finalArch_4.npy'), allow_pickle=True)
+val_loss2 = np.load(os.path.join(result_folder, 'acc_valid-random_finalArch_2.npy'), allow_pickle=True)
+val_loss3 = np.load(os.path.join(result_folder, 'acc_valid-random_finalArch_3.npy'), allow_pickle=True)
+val_loss4 = np.load(os.path.join(result_folder, 'acc_valid-random_finalArch_4.npy'), allow_pickle=True)
 
-# from 0:15 epoch_acc from stage1; from 15:30 epoch_acc from stage2; from 30:45 epoch_acc from stage3
-acc_train_PDARTS = np.load('/home/amadeu/anaconda3/envs/EXPsearch-try-20210620-110508-acc_train-20210620-1109.npy', allow_pickle=True)
+
+plt.plot(val_loss1, 'r') # plotting t, a separately 
+plt.plot(val_loss2, 'b') # plotting t, b separately 
+plt.plot(val_loss3, 'y') # plotting t, c separately 
+plt.plot(val_loss4, 'g') # plotting t, c separately 
+
+plt.show()
+
+
+
+
+
+t = linspace(0, 2*math.pi, 400)
+a = sin(t)
+b = cos(t)
+c = a + b
+
+plt.plot(t, a, 'r') # plotting t, a separately 
+plt.plot(t, b, 'b') # plotting t, b separately 
+plt.plot(t, c, 'g') # plotting t, c separately 
+plt.show()
+
+
+
+
+
+
+
+
+
+        
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
+
+
+# Generate some data from five different probability distributions,
+# each with different characteristics. We want to play with how an IID
+# bootstrap resample of the data preserves the distributional
+# properties of the original sample, and a boxplot is one visual tool
+# to make this assessment
+numDists = 5
+randomDists = ['Normal(1,1)', ' Lognormal(1,1)', 'Exp(1)', 'Gumbel(6,4)',
+               'Triangular(2,9,11)']
+N = 500
+np.random.seed(0)
+norm = np.random.normal(1, 1, N)
+logn = np.random.lognormal(1, 1, N)
+expo = np.random.exponential(1, N)
+gumb = np.random.gumbel(6, 4, N)
+tria = np.random.triangular(2, 9, 11, N)
+
+# Generate some random indices that we'll use to resample the original data
+# arrays. For code brevity, just use the same random indices for each array
+bootstrapIndices = np.random.random_integers(0, N - 1, N)
+normBoot = norm[bootstrapIndices]
+expoBoot = expo[bootstrapIndices]
+gumbBoot = gumb[bootstrapIndices]
+lognBoot = logn[bootstrapIndices]
+triaBoot = tria[bootstrapIndices]
+
+data = [norm, normBoot, logn, lognBoot, expo, expoBoot, gumb, gumbBoot,
+        tria, triaBoot]
+
+fig, ax1 = plt.subplots(figsize=(10, 6))
+fig.canvas.set_window_title('A Boxplot Example')
+plt.subplots_adjust(left=0.075, right=0.95, top=0.9, bottom=0.25)
+
+bp = plt.boxplot(data, notch=0, sym='+', vert=1, whis=1.5)
+plt.setp(bp['boxes'], color='black')
+plt.setp(bp['whiskers'], color='black')
+plt.setp(bp['fliers'], color='red', marker='+')
+
+# Add a horizontal grid to the plot, but make it very light in color
+# so we can use it for reading data values but not be distracting
+ax1.yaxis.grid(True, linestyle='-', which='major', color='lightgrey',
+               alpha=0.5)
+
+# Hide these grid behind plot objects
+ax1.set_axisbelow(True)
+ax1.set_title('Comparison of IID Bootstrap Resampling Across Five Distributions')
+ax1.set_xlabel('Distribution')
+ax1.set_ylabel('Value')
+
+# Now fill the boxes with desired colors
+boxColors = ['darkkhaki', 'royalblue']
+numBoxes = numDists*2
+medians = list(range(numBoxes))
+for i in range(numBoxes):
+    box = bp['boxes'][i]
+    boxX = []
+    boxY = []
+    for j in range(5):
+        boxX.append(box.get_xdata()[j])
+        boxY.append(box.get_ydata()[j])
+    boxCoords = list(zip(boxX, boxY))
+    # Alternate between Dark Khaki and Royal Blue
+    k = i % 2
+    boxPolygon = Polygon(boxCoords, facecolor=boxColors[k])
+    ax1.add_patch(boxPolygon)
+    # Now draw the median lines back over what we just filled in
+    med = bp['medians'][i]
+    medianX = []
+    medianY = []
+    for j in range(2):
+        medianX.append(med.get_xdata()[j])
+        medianY.append(med.get_ydata()[j])
+        plt.plot(medianX, medianY, 'k')
+        medians[i] = medianY[0]
+    # Finally, overplot the sample averages, with horizontal alignment
+    # in the center of each box
+    plt.plot([np.average(med.get_xdata())], [np.average(data[i])],
+             color='w', marker='*', markeredgecolor='k')
+
+# Set the axes ranges and axes labels
+ax1.set_xlim(0.5, numBoxes + 0.5)
+top = 40
+bottom = -5
+ax1.set_ylim(bottom, top)
+xtickNames = plt.setp(ax1, xticklabels=np.repeat(randomDists, 2))
+plt.setp(xtickNames, rotation=45, fontsize=8)
+
+# Due to the Y-axis scale being different across samples, it can be
+# hard to compare differences in medians across the samples. Add upper
+# X-axis tick labels with the sample medians to aid in comparison
+# (just use two decimal places of precision)
+pos = np.arange(numBoxes) + 1
+upperLabels = [str(np.round(s, 2)) for s in medians]
+weights = ['bold', 'semibold']
+for tick, label in zip(range(numBoxes), ax1.get_xticklabels()):
+    k = tick % 2
+    ax1.text(pos[tick], top - (top*0.05), upperLabels[tick],
+             horizontalalignment='center', size='x-small', weight=weights[k],
+             color=boxColors[k])
+
+# Finally, add a basic legend
+plt.figtext(0.80, 0.08, str(N) + ' Random Numbers',
+            backgroundcolor=boxColors[0], color='black', weight='roman',
+            size='x-small')
+plt.figtext(0.80, 0.045, 'IID Bootstrap Resample',
+            backgroundcolor=boxColors[1],
+            color='white', weight='roman', size='x-small')
+plt.figtext(0.80, 0.015, '*', color='white', backgroundcolor='silver',
+            weight='roman', size='medium')
+plt.figtext(0.815, 0.013, ' Average Value', color='black', weight='roman',
+            size='x-small')
+
+plt.show()

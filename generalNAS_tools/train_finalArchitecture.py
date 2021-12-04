@@ -42,6 +42,8 @@ from generalNAS_tools.train_and_validate import train, infer
 
 import darts_tools.cnn_eval
 
+# 1. rnn_mask in model_search2.py initialisieren
+
 
 
 parser = argparse.ArgumentParser(description='Evaluate final architecture found by PDARTS')
@@ -59,7 +61,6 @@ parser.add_argument('--test_input_directory', type=str, default='/home/amadeu/De
 parser.add_argument('--test_target_directory', type=str, default='/home/amadeu/Desktop/GenomNet_MA/data/targets_small_test.pkl', help='directory of test data')
 
 parser.add_argument('--task', type=str, default='TF_bindings', help='defines the task')#TF_bindings
-
 
 parser.add_argument('--num_files', type=int, default=3, help='number of files for data')
 parser.add_argument('--cnn_lr', type=float, default=0.025, help='learning rate for CNN part')
@@ -122,7 +123,7 @@ parser.add_argument('--arch_wdecay', type=float, default=1e-3,
                     help='weight decay for the architecture encoding alpha')
 parser.add_argument('--arch_lr', type=float, default=3e-3,
                     help='learning rate for the architecture encoding alpha')
-parser.add_argument('--genotype_file', type=str, default='/home/amadeu/Desktop/GenomNet_MA/preliminary_study_results/nodropout_rhnlr8/EXPsearch-try-20210807-072855-darts_geno.npy', help='directory of final genotype')
+parser.add_argument('--genotype_file', type=str, default='/home/amadeu/Desktop/GenomNet_MA/preliminary_study_results/search/lr8_nodrop/EXPsearch-try-20210807-072855-darts_geno.npy', help='directory of final genotype')
 parser.add_argument('--search', type=bool, default=False, help='which architecture to use')
 
 parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path probability')
@@ -149,7 +150,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO,
     format=log_format, datefmt='%m/%d %I:%M:%S %p')
 fh = logging.FileHandler(os.path.join(args.save, 'log.txt'))
 fh.setFormatter(logging.Formatter(log_format))
-#logging.getLogger().addHandler(fh)
+# genotype = np.load(args.genotype_file, allow_pickle=True)
+
 
 logging = logging.getLogger(__name__)
 
@@ -163,7 +165,7 @@ def main():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   
-    # criterion = nn.BCELoss()
+    # model = one_shot_model.RNNModel(args.seq_size, args.dropouth, args.dropoutx, args.init_channels, 919, args.layers, args.steps, 4, 3, False, args.drop_path_prob, genotype=np.load(args.genotype_file, allow_pickle=True), task=args.task).to(device)
   
     if (args.task == "next_character_prediction"):
         import generalNAS_tools.data_preprocessing_new as dp
@@ -181,7 +183,7 @@ def main():
       
         import generalNAS_tools.data_preprocessing_TF as dp
         
-        # train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_input_directory, args.valid_input_directory, args.test_input_directory, args.train_target_directory, args.valid_target_directory, args.test_target_directory, args.batch_size)
+        # print(sum(p.numel() for p in model.parameters()))
         train_queue, valid_queue, test_queue = dp.data_preprocessing(args.train_directory, args.valid_directory, args.test_directory, args.batch_size)
 
         
@@ -197,13 +199,25 @@ def main():
     if args.continue_train:
         model = torch.load(os.path.join(args.save, 'model.pt'))
     else:      
-        
         genotype = np.load(args.genotype_file, allow_pickle=True)
         # genotype = np.load('/home/amadeu/Desktop/GenomNet_MA/EXPsearch-try-20210626-091257-random_geno.npy', allow_pickle=True)
     
         # my_gene = genotype
         # his_gene = genotype
-    
+        
+        #from randomSearch_and_Hyperband_Tools.utils import geno2mask
+        
+        #cnn_mask, rhn_mask = geno2mask(genotype)
+        
+        #supernet_mask = [cnn_mask, cnn_mask, rhn_mask]
+
+        #from generalNAS_tools.train_and_validate_HB import train, infer
+        
+        #import randomSearch_and_Hyperband_Tools.model_search2 as one_shot_model
+        
+        #model = one_shot_model.RNNModelSearch(args.seq_size, args.dropouth, args.dropoutx,
+        #                          args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,  
+        #                          True, 0.2, None, args.task, supernet_mask).to(device)
     
         model = one_shot_model.RNNModel(args.seq_size, args.dropouth, args.dropoutx,
                             args.init_channels, num_classes, args.layers, args.steps, multiplier, stem_multiplier,
@@ -238,7 +252,7 @@ def main():
     clip_params = [args.conv_clip, args.rhn_clip, args.clip]
     
     
-    #for run in range(args.num_runs):
+    print(sum(p.numel() for p in model.parameters()))
         # run=0
         
     train_losses = []
@@ -262,7 +276,8 @@ def main():
         lr = scheduler.get_last_lr()[0]
         
         labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, None, None, args.unrolled, lr, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, train_arch=False, pdarts=False, task=args.task)
-            
+        # labels, predictions, train_loss = train(train_queue, valid_queue, model, rhn, conv, criterion, optimizer, epoch, args.num_steps, clip_params, args.report_freq, args.beta, args.one_clip, task=args.task, mask=supernet_mask)
+
         scheduler.step()
     
         labels = np.concatenate(labels)
@@ -279,7 +294,6 @@ def main():
                 logging.info('| epoch {:3d} | train f1-score {:5.2f}'.format(epoch, f1))
                 train_acc.append(f1)
 
-     
       
         #all_labels_train.append(labels)
         #all_predictions_train.append(predictions)
@@ -298,6 +312,8 @@ def main():
         if epoch % args.report_validation == 0:
           
           labels, predictions, valid_loss = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task)
+          #labels, predictions, valid_loss = infer(valid_queue, model, criterion, args.batch_size, args.num_steps, args.report_freq, task=args.task, mask=supernet_mask)
+
           
           labels = np.concatenate(labels)
           predictions = np.concatenate(predictions)
@@ -311,7 +327,7 @@ def main():
 
           else:
               f1 = overall_f1(labels, predictions, args.task)
-              logging.info('| epoch {:3d} | val f1-score {:5.2f}'.format(epoch, f1))
+              logging.info('| epoch {:3d} | val f1-score {:5.8f}'.format(epoch, f1))
               logging.info('| epoch {:3d} | val loss {:5.4f}'.format(epoch, valid_loss))
 
               valid_acc.append(f1)
