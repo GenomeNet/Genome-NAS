@@ -46,6 +46,7 @@ def train(train_queue, random_model, criterion, optimizer, lr, epoch, rhn, conv,
         
         if step > num_steps:
             break
+        
         input, target = input, target
   
         random_model.train()

@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun 26 10:15:51 2021
+Created on Mon Sep 13 16:28:13 2021
 
 @author: amadeu
 """
 
 from generalNAS_tools.operations_14_9 import *
 from generalNAS_tools.genotypes import PRIMITIVES_cnn, PRIMITIVES_rnn, rnn_steps, CONCAT
-# from training_utils import mask2d
-from generalNAS_tools.utils import mask2d
+from opendomain_utils.training_utils import mask2d
 
-import generalNAS_tools.genotypes
+from opendomain_utils import genotypes
 import numpy as np
 from torch.autograd import Variable
+
+from darts_tools.comp_aux import get_state_ind, get_w_pos
 
 import numpy as np
 import torch
@@ -24,134 +25,122 @@ INITRANGE = 0.04
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-from darts_tools.comp_aux import get_state_ind, get_w_pos
-
-from operator import itemgetter 
-
 import math
 
 
+
 class MixedOp(nn.Module):
-
-    def __init__(self, C, stride, switch, p): # C, stride, switch=switches[switch_count], p=self.p
+    '''mask: op'''
+    
+    # mask = supernet_mask[1]
+    def __init__(self, C, stride, mask_cnn):
         super(MixedOp, self).__init__()
-        self.m_ops = nn.ModuleList()
-        self.p = p
+        self.stride = stride
+        self._ops = nn.ModuleList()
+        # mask_cnn = supernet_mask[0]
+        # mask_cnn = mask_cnn[0]
+        # C,stride = 48,1
+        
+        mask_1 = np.nonzero(mask_cnn)[0] # 
       
-        for i in range(len(switch)): 
-            # i=1
-            if switch[i]: 
-                primitive = PRIMITIVES_cnn[i]
+        self._super_mask = mask_1 
+                    
+        for i in range(len(mask_cnn)):
+            if mask_cnn[i] != 0:
+                primitive = PRIMITIVES_cnn[i] 
                 op = OPS[primitive](C, stride, False)
-                if 'pool' in primitive:
-                    op = nn.Sequential(op, nn.BatchNorm1d(C, affine=False))
-                if isinstance(op, Identity) and p > 0: #
-                    op = nn.Sequential(op, nn.Dropout(self.p))
-                    
-                self.m_ops.add_module(primitive, op)
-     
-    def update_p(self):
-        for op in self.m_ops:
-            if isinstance(op, nn.Sequential):
-                if isinstance(op[0], Identity):
-                    op[1].p = self.p
-                    
-    def forward(self, x):
-        
-        # return sum(w * op(x) for w, op in zip(weights, self.m_ops))
-        return sum(op(x) for op in self.m_ops) #
 
-        
-# reduction, p, C_prev_prev, C_prev, C = False, 0.0, 48, 48, 48
+                if 'pool' in primitive: #
+                    op = nn.Sequential(op, nn.BatchNorm1d(C, affine=False))
+               
+                
+                self._ops.add_module(str(i), op)
+            else:
+                op = None
+
+                self._ops.add_module(str(i), op)
+                    
+    
+    def forward(self, x, mask_cnn):
+        if (mask_cnn==0).all(): 
+            # falls normal cell
+            if self.stride == 1:
+                # return x.mul(0.)
+                return torch.zeros_like(x)
+            return torch.zeros_like(x[:,:,::self.stride]) 
+        else: 
+            result = 0
+            mask_2 = np.nonzero(mask_cnn)[0] 
+            if len(mask_2) != 0:
+                for selected in np.nditer(mask_2): 
+                    #pos = np.where(_super_mask==selected)[0][0] 
+                    #print(pos)
+                    # pos = np.where(self._super_mask==selected)[0][0] # selected was [2,3,8], pos will be 0,1,2
+                    # primitive = PRIMITIVES_cnn[selected]
+                    result += self._ops[selected](x)
+                    
+            return result
+
 
 class CNN_Cell_search(nn.Module):
+    '''mask: 14 * 8'''
 
-     def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, switches, p, reduction_high):
+    def __init__(self, steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, mask_cnn, reduction_high):
+                       # steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, mask_cnn, reduction_high = 4, 4, 8, 8, 8, False, False, supernet_mask[0], False      
         super(CNN_Cell_search, self).__init__()
+        
         self.reduction = reduction
-        self.p = p
+
         if reduction_prev:
             self.preprocess0 = FactorizedReduce(C_prev_prev, C, 2, affine=False)
+            #self.preprocess0 = FactorizedReduce(C_prev_prev, C, 2, affine=False)
         else:
             self.preprocess0 = ReLUConvBN(C_prev_prev, C, 1, 1, 0, affine=False)
             
         self.preprocess1 = ReLUConvBN(C_prev, C, 1, 1, 0, affine=False)
-        
         self._steps = steps
-        
         self._multiplier = multiplier
 
         self.cell_ops = nn.ModuleList()
-        
-        self.state_idxs = get_state_ind(self._steps, switches)
-        # _steps, switches = 4, switches_normal
-        # state_idxs = get_state_ind(_steps, switches)
-        self.w_pos = get_w_pos(self._steps, switches)
-        # w_pos = get_w_pos(_steps, switches)
-                
-        switch_count = 0
-        #discard_switch = []
+        self._bns = nn.ModuleList()
+        cnt = 0
         
         for i in range(self._steps):
-         
-            for j in range(2+i):
-                # i0: j=0,1 ; count=0,1
-                # i1: j=0,1,2 ; count=2,3,4
-                # i2: j=0,1,2,3 ; count=5,6,7,8
-                # i3: j=0,1,2,3,4 ; count = 9,10,11,12,13
-                if switches[switch_count].count(False) != len(switches[switch_count]):
-                    
-                    stride = 2 if reduction and j < 2 else 1
-                    
-                    if (reduction==False) or j >= 2:
-                        stride=1
+            for j in range(2 + i):
                 
-                    if reduction and j < 2:
-                        stride=2
+                stride = 2 if reduction and j < 2 else 1
                     
-                    if reduction_high and j < 2:
-                        stride=3
-                    
-                    op = MixedOp(C, stride, switch=switches[switch_count], p=self.p) # d.h. für i=1, greift er auf 0te, 1te und 2te zeile von switches
-                   
-                    self.cell_ops.add_module(str(switch_count), op)
-                #else:
-                #    discard_edge += 1
-                    
-                switch_count += 1
+                if (reduction==False) or j >= 2:
+                    stride=1
                 
-     def update_p(self):
-         for op in self.cell_ops:# cell_ops[0]
-             op.p = self.p
-             op.update_p()
+                if reduction and j < 2:
+                    stride=2
+                    
+                if reduction_high and j < 2:
+                    stride=3
+                
+                op = MixedOp(C, stride, mask_cnn[cnt])
+                
+                # self._ops.append(op)
+                self.cell_ops.add_module(str(cnt), op)
+                
+                cnt += 1
+                
+    def forward(self, s0, s1, mask_cnn):
+        s0 = self.preprocess0(s0)
+        s1 = self.preprocess1(s1)
 
-     def forward(self, s0, s1):
-       
-         s0 = self.preprocess0(s0)
-         s1 = self.preprocess1(s1)
-       
-         states = [s0, s1]
-         offset=0
+        states = [s0, s1]
+        offset = 0
+        for i in range(self._steps):
+            s = sum(self.cell_ops[offset + j].forward(h, mask_cnn[offset + j]) for j, h in enumerate(states))
+        
+            offset += len(states)
+            states.append(s)
 
-         for i in range(self._steps):
-             # i=3
-             s = sum(self.cell_ops._modules[str(offset+j)](h) for j, h in enumerate(states) if j in self.state_idxs[i]) # vorher node_states und start anstatt offset
-             # s = sum(self.cell_ops[self.w_pos[i]+j](h) for j, h in enumerate(itemgetter(*self.state_idxs[i])(states))) # vorher node_states und start anstatt offset
-             #s = sum(self.cell_ops[self.w_pos[i]+j].forward(h) for j, h in enumerate(itemgetter(*self.state_idxs[i])(states)))
-             offset += len(states)
-             states.append(s)
-             
-         return torch.cat(states[-self._multiplier:], dim=1)
+        return torch.cat(states[-self._multiplier:], dim=1)
 
-#sum(j for j, h in enumerate(states) if j in state_idxs[i]) # vorher node_states und start anstatt offset
-#s = sum(j for j, h in enumerate(itemgetter(*state_idxs[i])(states))) # vorher node_states und start anstatt offset
-#states = [2,3]
-#offset=0
-#for j in range(4):
-#    s = 5
-#    print(offset)
-#    offset += len(states)
-#    states.append(s)
+
 
 # for evaluation
 class DARTSCell(nn.Module):
@@ -164,15 +153,12 @@ class DARTSCell(nn.Module):
     self.genotype = genotype
 
     steps = len(self.genotype.rnn) if self.genotype is not None else rnn_steps
-    
-    self._W0 = nn.Parameter(torch.Tensor(ninp+nhid, 2*nhid).uniform_(-INITRANGE, INITRANGE)) # [512,512]
+    self._W0 = nn.Parameter(torch.Tensor(ninp+nhid, 2*nhid).uniform_(-INITRANGE, INITRANGE)) 
     self._Ws = nn.ParameterList([
-        nn.Parameter(torch.Tensor(nhid, 2*nhid).uniform_(-INITRANGE, INITRANGE)) for i in range(steps) # []
-    ]) # liste mit 8 elementen und jedes Element ist ein weight mit shape [256, 512]
+        nn.Parameter(torch.Tensor(nhid, 2*nhid).uniform_(-INITRANGE, INITRANGE)) for i in range(steps) 
+    ])
    
-  # inputs = x
-  # hidden = torch.rand(1,2,256)
-  def forward(self, inputs, hidden):
+  def forward(self, inputs, hidden, rnn_mask):
   
     T, B = inputs.size(0), inputs.size(1) # 10,2
 
@@ -186,16 +172,14 @@ class DARTSCell(nn.Module):
         
       x_mask = h_mask = None
       
-    hidden = hidden[0].to(device)
+    hidden = hidden[0]
 
     hiddens = []
-    
     for t in range(T):
  
-      hidden = self.cell(inputs[t], hidden, x_mask, h_mask)
-      hidden = hidden.to(device)
+      hidden = self.cell(inputs[t], hidden, x_mask, h_mask, rnn_mask)
+
       hiddens.append(hidden)
-      
     hiddens = torch.stack(hiddens)
     return hiddens, hiddens[-1].unsqueeze(0)
 
@@ -204,7 +188,9 @@ class DARTSCell(nn.Module):
     if self.training:
       xh_prev = torch.cat([x * x_mask, h_prev * h_mask], dim=-1) # entlang der channels zusammenfügen
     else:
-      xh_prev = torch.cat([x, h_prev], dim=-1) # x hat shape [2,512] und h_prev hat shape [2,512]
+      #print(x.shape)
+      #print(h_prev.shape)
+      xh_prev = torch.cat([x, h_prev], dim=-1)
       
     c0, h0 = torch.split(xh_prev.mm(self._W0), self.nhid, dim=-1) 
     # c0, h0 = torch.split(xh_prev.mm(_W0), nhid, dim=-1) 
@@ -252,38 +238,50 @@ class DARTSCell(nn.Module):
 # C, num_classes, layers, criterion, steps, multiplier, stem_multiplier = 16, 4, 3, nn.CrossEntropyLoss().to(device), 4, 4, 3 
 # _C, _num_classes, _layers, _criterion, _steps, _multiplier, _stem_multiplier = 16, 4, 3, nn.CrossEntropyLoss().to(device), 4, 4, 3 
 
-# x = torch.rand(2,4,200)
+# x = torch.rand(2,4,10)
 # x = torch.rand(10,2,256) # nach CNN_cells
 # hidden = torch.rand(1,2,256)
 # hidden = hidden[0] # [1,2,256] 
 # ninp, nhid, nhidlast = 256, 256, 256
 
-#args.seq_len, args.dropout, args.dropouth, args.dropoutx, args.dropouti, args.dropoute,
-#                            args.init_channels, args.num_classes, args.layers, args.steps, args.multiplier,
-#                            args.stem_multiplier, True, 0.2, None, mask
 
 class RNNModel(nn.Module):
 
+    #self.seq_len, self.dropouth, self.dropoutx,
+    #                          self.init_channels, self.num_classes, self.layers, self.steps, multiplier, stem_multiplier,  
+    #                          True, 0.2, None, self.task, 
+    #                          switches_normal_cnn, switches_reduce_cnn, switches_rnn, 0.0
+   
     def __init__(self, seq_len, 
                  dropouth=0.5, dropoutx=0.5,
                  C=8, num_classes=4, layers=3, steps=4, multiplier=4, stem_multiplier=3,
-                 search=True, drop_path_prob=0.2, genotype=None, task=None, switches_normal=[], switches_reduce=[], switches_rnn=[], p=0.0):
+                 search=True, drop_path_prob=0.2, genotype=None, task=None, mask=None):
+                
         super(RNNModel, self).__init__()
-           
+    
+            
+        self.mask_normal = mask[0]
+        self.mask_reduce = mask[1]
+
+        self.mask_rnn = mask[2]
         self._C = C
         self._num_classes = num_classes
         self._layers = layers
-        #self._criterion = criterion
         self._steps = steps
         self._multiplier = multiplier
-        self.p = p
-        if search == True:
-            self.switches_normal = switches_normal
-            self.switches_reduce = switches_reduce
-            self.switches_rnn = switches_rnn
-            self.num_ops_cnn = sum(switches_normal[0])
-            self.num_ops_rnn = sum(switches_rnn[0])
+        #self.p = p
+        self.dropouth = dropouth
+        self.dropoutx = dropoutx
+        
+        #if search == True:
+        
+        #    self.switches_normal = switches_normal
+        #    self.switches_reduce = switches_reduce
+        #    self.switches_rnn = switches_rnn
+        #    self.num_ops_cnn = sum(switches_normal[0])
+        #    self.num_ops_rnn = sum(switches_rnn[0])
 
+    
         C_curr = stem_multiplier*C
         self.stem = nn.Sequential(
             nn.Conv1d(4, C_curr, 13, padding=6, bias=False),
@@ -301,7 +299,7 @@ class RNNModel(nn.Module):
         
         normal_cells = layer_list[::3]
         
-        num_neurons = seq_len #
+        num_neurons = seq_len # =1000
         
         for i in range(layers):
        
@@ -319,11 +317,11 @@ class RNNModel(nn.Module):
                     num_neurons = round(num_neurons/2) #int(math.ceil(num_neurons/2))
                     
                 if search == True:
-                    # cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high)
-                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, self.switches_normal, self.p, reduction_high) 
-
+                    # switches = self.switches_reduce
+                    # steps, multiplier, C_prev_prev, C_prev, C, reduction, reduction_prev, mask_cnn, reduction_high
+                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, self.mask_reduce, reduction_high)
+                    # steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, switches, self.p, reduction_high
                 else:
-
                     cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high)
 
             else:
@@ -331,20 +329,19 @@ class RNNModel(nn.Module):
                 # reduction = False
                 if search == True:
                     # switches = self.switches_normal
-                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, self.switches_reduce, self.p, reduction_high) 
+                    cell = CNN_Cell_search(steps, multiplier, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, self.mask_normal, reduction_high) 
                 else:
                     cell = cnn_eval.CNN_Cell_eval(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, reduction_high) 
-
+              
             reduction_prev = reduction
             self.cells += [cell]
             C_prev_prev, C_prev = C_prev, multiplier*C_curr
 
         self.drop_path_prob = drop_path_prob
         
-        
         out_channels = C_curr*steps
         
-        #num_neurons = math.ceil(math.ceil(seq_len / len([layers//3, 2*layers//3])) / 2)
+        # num_neurons = math.ceil(math.ceil(seq_len / len([layers//3, 2*layers//3])) / 2)
         
         ninp, nhid, nhidlast = out_channels, out_channels, out_channels
     
@@ -364,16 +361,28 @@ class RNNModel(nn.Module):
         else:
             # run search
             assert genotype is None
-            from randomSearch_and_Hyperband_Tools import model_search
-            cell_cls = model_search.DARTSCellSearch
-            self.rnns = [cell_cls(ninp, nhid, dropouth, dropoutx, self.switches_rnn)]
-
-       
-        self.rnns = torch.nn.ModuleList(self.rnns)
+            from randomSearch_and_Hyperband_Tools import model_search2
+            cell_cls = model_search2.DARTSCellSearch
+            self.rnns = [cell_cls(ninp, nhid, dropouth, dropoutx)]
         
+        
+        self.rnns = torch.nn.ModuleList(self.rnns)
+
         self.decoder = nn.Linear(num_neurons*out_channels, 925) # because we have flattened 
         
         self.classifier = nn.Linear(925, num_classes)
+        
+        self.relu = nn.ReLU(inplace=True)
+        
+        self.dropout_lin = nn.Dropout(p=0.5)
+
+        self.init_weights()
+
+        self.ninp = ninp
+        self.nhid = nhid
+        self.nhidlast = nhidlast
+        
+        self.cell_cls = cell_cls
         
         if task == "TF_bindings":
             
@@ -382,39 +391,33 @@ class RNNModel(nn.Module):
         else:
             
             self.final = nn.Identity()
-        
-        self.relu = nn.ReLU(inplace=True)
-        
-        self.dropout_lin = nn.Dropout(p=0.1)
-
-        self.init_weights()
-
-        self.ninp = ninp
-        self.nhid = nhid
-        self.nhidlast = nhidlast
-        
-        # self.cell_cls = cell_cls
 
         
     def init_weights(self):
         
         self.decoder.bias.data.fill_(0)
         self.decoder.weight.data.uniform_(-INITRANGE, INITRANGE)  
+
+    def forward(self, input, hidden, mask, return_h=False):
         
-    def forward(self, input, hidden, return_h=False):
-        
+        # print(input.shape)
         s0 = s1 = self.stem(input)
-                        
-        for i, cell in enumerate(self.cells):
-            
-            s0, s1 = s1, cell.forward(s0, s1)#, self.mask)
         
+        for i, cell in enumerate(self.cells):   
+            
+            if cell.reduction:
+                cur_mask = mask[1]
+            else:
+                cur_mask = mask[0]
+            s0, s1 = s1, cell(s0, s1, cur_mask)
+
+       
         batch_size = s1.size(0) 
 
         out_channels = s1.size(1)
         num_neurons = s1.size(2)
         
-        # CNN expects [batchsize, input_channels, signal_length]
+        #CNN expects [batchsize, input_channels, signal_length]
         # RHN expect [seq_len, batch_size, features]
         
         x = s1.permute(2,0,1)
@@ -424,10 +427,10 @@ class RNNModel(nn.Module):
         new_hidden = []
         raw_outputs = []
         outputs = []
-        
         for l, rnn in enumerate(self.rnns): 
+            
             current_input = raw_output
-            raw_output, new_h = rnn(raw_output, hidden[l])
+            raw_output, new_h = rnn(raw_output, hidden[l], mask[2])
             new_hidden.append(new_h)
             raw_outputs.append(raw_output)
             
@@ -438,46 +441,104 @@ class RNNModel(nn.Module):
         outputs.append(output)
         
         output = output.permute(1,0,2)
-                
+
+        
         # flatten the RNN output
         x = torch.flatten(output, start_dim= 1) 
         
+        # dropout layer
         x = self.dropout_lin(x)
-                
+        
         # linear layer
         x = self.decoder(x) 
         
+        # dropout layer
+        #x = self.dropout_lin(x)
+        
         x = self.relu(x)
         
-        x = self.classifier(x)
+        # print('first')
+        # print(x)
         
+        # linear layer
+        x = self.classifier(x)
+
         logit = self.final(x)
 
         if return_h:
             return logit, hidden, raw_outputs, outputs
-        return logit, hidden 
-    
         
-    
-  
-
+        return logit, hidden 
+     
 
     def update_p(self):
         for cell in self.cells:
             cell.p = self.p
             cell.update_p()
     
-    #def _loss(self, hidden, input, target, criterion):
-    #    log_prob, hidden_next = self(input, hidden, return_h=False) 
-
-    #    loss = criterion(log_prob, target)
+    def _loss(self, hidden, input, target):
+        log_prob, hidden_next = self(input, hidden, return_h=False) 
+          
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(log_prob, target)
         
-    #    return loss, hidden_next
+        return loss, hidden_next
   
     def init_hidden(self, bsz):
         weight = next(self.parameters()).data
         return [Variable(weight.new(1, bsz, self.nhid).zero_())]
 
+
+
+# genotype = genotypes[0]
+def geno2mask(genotype):
+    des = -1
+    #mask = np.zeros([14+36,8+4])
+    
+    cnn_mask = np.zeros([14,9])
+    rnn_mask = np.zeros([36,5])
+
+    op_names_cnn, indices = zip(*genotype.normal)
+    
+    for cnt, (name, index) in enumerate(zip(op_names_cnn, indices)):
+     
+        if cnt % 2 == 0: 
+       
+            des += 1 
+            total_state = sum(i + 2 for i in range(des)) 
+           
+        op_idx = PRIMITIVES_cnn.index(name) 
+        node_idx = index + total_state 
+        
+        cnn_mask[node_idx, op_idx] = 1 
+      
+    op_names_rnn, indices = zip(*genotype.rnn)
+
+    aux = 0
+    for cnt, (name, index) in enumerate(zip(op_names_rnn, indices)):
+   
+       
+        node_idx = aux + index
+      
+        op_idx = PRIMITIVES_rnn.index(name) 
+    
+        rnn_mask[node_idx, op_idx] = 1 
+        
+        aux += cnt +1
+        
+    return cnn_mask, rnn_mask
+
+#subnet_mask = geno2mask(genotype)
+
+def merge(cnn_mask, rnn_mask):
+    supernet_mask_cnn = np.zeros((14, 9))
+    supernet_mask_rnn = np.zeros((36,5))
+    for mask in cnn_mask: 
+        supernet_mask_cnn = mask + supernet_mask_cnn
+        
+    for mask in rnn_mask: 
+        supernet_mask_rnn = mask + supernet_mask_rnn
+    return supernet_mask_cnn, supernet_mask_rnn
 
 
 if __name__ == "__main__":

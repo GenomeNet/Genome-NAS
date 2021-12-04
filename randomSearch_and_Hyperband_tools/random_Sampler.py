@@ -14,14 +14,13 @@ from generalNAS_tools.genotypes import OPS_cnn, OPS_rnn, PRIMITIVES_cnn, PRIMITI
 
 
 def sample_cnn_operations():
-    op = random.choice([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    op = random.choice([1, 2, 3, 4, 5, 6, 7, 8]) # without zero operation
     return op
 
 
 def sample_rhn_operations():
-    op = random.choice([0, 1, 2, 3, 4])
+    op = random.choice([1, 2, 3, 4]) # without zero operation
     return op
-
 
 
 def sample_architectures():
@@ -29,23 +28,24 @@ def sample_architectures():
     ## CNN ##
     cnn_mask = np.zeros([14,9])
     
-   
-    edge_1_1, edge_1_2 = np.random.choice([2, 3, 4], size=2, replace=False)
+    # first node receives always two inputs/edges from two previous cells
     
-    edge_2_1, edge_2_2 = np.random.choice([5, 6, 7, 8], size=2, replace=False)
+    edge_1_1, edge_1_2 = np.random.choice([2, 3, 4], size=2, replace=False) # sample randomly 2 edges/inputs for each node 2
     
-    edge_3_1, edge_3_2 = np.random.choice([9, 10, 11, 12, 13], size=2, replace=False)
+    edge_2_1, edge_2_2 = np.random.choice([5, 6, 7, 8], size=2, replace=False) # sample randomly 2 edges/inputs for each node 3
+    
+    edge_3_1, edge_3_2 = np.random.choice([9, 10, 11, 12, 13], size=2, replace=False) # sample randomly 2 edges/inputs for each node 4
 
-    # Node0
+    # Node1
     cnn_mask[0, sample_cnn_operations()] = 1  
     cnn_mask[1, sample_cnn_operations()] = 1  
-    # Node1
+    # Node2 
     cnn_mask[edge_1_1, sample_cnn_operations()] = 1  
     cnn_mask[edge_1_2, sample_cnn_operations()] = 1  
-    # Node2
+    # Node3
     cnn_mask[edge_2_1, sample_cnn_operations()] = 1  
     cnn_mask[edge_2_2, sample_cnn_operations()] = 1  
-    # Node3
+    # Node4
     cnn_mask[edge_3_1, sample_cnn_operations()] = 1  
     cnn_mask[edge_3_2, sample_cnn_operations()] = 1  
 
@@ -87,8 +87,10 @@ def generate_random_architectures(generate_num):
     # es werden zuerst random adj und ops matritzen erzeugt und diese
     # werden dann einfach als dictionary eingespeichert und jedes dictionary bildet ein element einer liste archs
     while cnt < generate_num:
-        random_architecture = sample_architectures()
-        random_architectures.append(random_architecture)
+        normal_cnn, _ = sample_architectures()
+        reduction_cnn, rnn = sample_architectures()
+
+        random_architectures.append([normal_cnn, reduction_cnn, rnn])
         cnt += 1
     return random_architectures
 
@@ -97,6 +99,7 @@ def generate_random_architectures(generate_num):
 ### genotypes
 def mask2genotype(random_architecture):
     ## CNN ##
+    # normal cell
     cnn_gene = random_architecture[0]
     n = 2
     start = 0
@@ -112,8 +115,24 @@ def mask2genotype(random_architecture):
         start = end
         n = n + 1
         
+    # reduction cell
+    cnn_gene = random_architecture[1]
+    n = 2
+    start = 0
+    cell_cnn_red = []
+    for i in range(4):  
+        end = start + n
+        for j in range(start, end):
+            if (cnn_gene[j]==0).all():
+               continue
+            edge = j-start
+            op = PRIMITIVES_cnn[np.nonzero(cnn_gene[j])[0][0]]
+            cell_cnn_red.append((edge,op))
+        start = end
+        n = n + 1
+        
     ## RHN ##
-    rnn_gene = random_architecture[1]
+    rnn_gene = random_architecture[2]
     cell_rnn = []
     n = 1
     start = 0
@@ -132,7 +151,7 @@ def mask2genotype(random_architecture):
     genotype = Genotype(
         normal=cell_cnn,
         normal_concat=[2, 3, 4, 5],
-        reduce=cell_cnn,
+        reduce=cell_cnn_red,
         reduce_concat=[2, 3, 4, 5],
         rnn = cell_rnn,
         rnn_concat = range(1,9)
