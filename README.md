@@ -31,8 +31,10 @@ To get the data for the predcion of noncoding variants please follow the instuct
 Run following Code to run a LSTM based basline model such as DanQ. Of course, you have to adapt the path of your data.
 ```
 cd baseline_models
-python train_LSTM_based.py --batch_size=32 --seq_size=150 --epochs=30 --data=/home/ascheppa/miniconda2/envs/GenomNet_MA/data/trainset.txt
-```
+
+mkdir deepsea
+
+python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='DeepSEA' --save='deepsea1' --save_dir=deepsea --model_path='deepsea/deepsea1.pth'```
 
 ### NCNet-bRR
 
@@ -41,14 +43,30 @@ cd baseline_models
 
 mkdir ncnet_brr
 
-python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ru85poq2/deepsea/train.mat' --valid_directory='/home/ru85poq2/deepsea/valid.mat' --test_directory='/home/ru85poq2/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_bRR' --save='ncnet_brr1' --save_dir=ncnet_brr --model_path='ncnet_brr/ncnet_brr1.pth'
+python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_bRR' --save='ncnet_brr1' --save_dir=ncnet_brr --model_path='ncnet_brr/ncnet_brr1.pth'
 ```
+
+### NCNet-RR
+
+```
+cd baseline_models
+
+mkdir ncnet_rr
+
+python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_RR' --save='ncnet_rr1' --save_dir=ncnet_rr --model_path='ncnet_rr/ncnet_rr1.pth'
+```
+
+
 
 
 ### DanQ
+
 ```
 cd baseline_models
-python train_LSTM_based.py --data='/home/amadeu/anaconda3/envs/darts_env/cnn/data2/trainset.txt' --seq_size=150
+
+mkdir danq
+
+python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='DanQ' --save='danq' --save_dir=danq --model_path='danq/danq1.pth'
 ```
 
 ## Run NAS algorithms for Genomics
