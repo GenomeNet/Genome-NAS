@@ -33,6 +33,18 @@ Run following Code to run a LSTM based basline model such as DanQ. Of course, yo
 cd baseline_models
 python train_LSTM_based.py --batch_size=32 --seq_size=150 --epochs=30 --data=/home/ascheppa/miniconda2/envs/GenomNet_MA/data/trainset.txt
 ```
+
+### NCNet-bRR
+
+```
+cd baseline_models
+
+mkdir ncnet_brr
+
+python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ru85poq2/deepsea/train.mat' --valid_directory='/home/ru85poq2/deepsea/valid.mat' --test_directory='/home/ru85poq2/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_bRR' --save='ncnet_brr1' --save_dir=ncnet_brr --model_path='ncnet_brr/ncnet_brr1.pth'
+```
+
+
 ### DanQ
 ```
 cd baseline_models
@@ -122,3 +134,27 @@ mkdir bonas_search
 
 python train_genomicBONAS.py --num_steps=200 --seq_size=1000  --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --report_freq=1000 --dropouth=0.05 --dropoutx=0.1 --rhn_lr=8 --one_clip=True --clip=0.25  --super_batch_size=64 --sub_batch_size=128 --generate_num=1000 --bo_sample_num=60 --epochs=60 --train_supernet_epochs=15 --iterations=2 --gcn_epochs=100 --sample_method='ea' --task='TF_bindings' --save='bonas_1' --save_dir=bonas_search
 ```
+
+## Train and validate final Architectures
+
+```
+cd generalNAS_tools
+
+mkdir darts_finalArchs
+
+python train_finalArchitecture.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --dropouth=0.05 --dropoutx=0.1 --epochs=50 --rhn_lr=8 --task='TF_bindings' --save_dir=darts_finalArchs --save='darts_arch_1' --model_path='darts_finalArchs/darts_arch_1.pth' --genotype_file='/home/ascheppa/GenomNet_MA/genomicNAS_Algorithms/darts_search/darts_geno-darts_1.npy'
+
+```
+
+
+## Test final Architectures
+
+```
+cd generalNAS_tools
+
+mkdir darts_test
+
+python test_finalArchitecture.py --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --dropouth=0.05 --dropoutx=0.1 --rhn_lr=8 --task='TF_bindings' --save_dir=darts_test --save='darts_test_1' --model='/home/ascheppa/GenomNet_MA/generalNAS_tools/darts_finalArchs/darts_arch_1.pth'
+
+```
+
