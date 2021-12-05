@@ -70,7 +70,7 @@ cd genomicNAS_Algorithms
 
 mkdir hb_search
 
-python train_genomicHyperbandNAS.py --num_steps=2000 --seq_size=1000 --batch_size=64 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --report_freq=1000 --epochs=20 --dropouth=0.05 --dropoutx=0.1 --rhn_lr=8 --one_clip=True --clip=0.25 --validation=True --report_validation=1 --budget=3 --num_samples=25 --iterations=3--task='TF_bindings'  --save='hb_1' --save_dir=hb_search
+python train_genomicHyperbandNAS.py --num_steps=2000 --seq_size=1000 --batch_size=64 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --report_freq=1000 --epochs=20 --dropouth=0.05 --dropoutx=0.1 --rhn_lr=8 --one_clip=True --clip=0.25 --validation=True --report_validation=1 --budget=3 --num_samples=25 --iterations=3 --task='TF_bindings'  --save='hb_1' --save_dir=hb_search
 ```
 
 ### genomeP-DARTS
