@@ -34,6 +34,7 @@ cd baseline_models
 mkdir deepsea
 
 python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='DeepSEA' --save='deepsea1' --save_dir=deepsea --model_path='deepsea/deepsea1.pth'```
+```
 
 ```
 cd baseline_models
