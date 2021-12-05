@@ -27,7 +27,6 @@ To get the data for the predcion of noncoding variants please follow the instuct
 
 ## Run baseline Models
 
-### DeepSEA
 Run following Code to run a LSTM based basline model such as DanQ. Of course, you have to adapt the path of your data.
 ```
 cd baseline_models
@@ -35,8 +34,6 @@ cd baseline_models
 mkdir deepsea
 
 python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='DeepSEA' --save='deepsea1' --save_dir=deepsea --model_path='deepsea/deepsea1.pth'```
-
-### NCNet-bRR
 
 ```
 cd baseline_models
@@ -46,8 +43,6 @@ mkdir ncnet_brr
 python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_bRR' --save='ncnet_brr1' --save_dir=ncnet_brr --model_path='ncnet_brr/ncnet_brr1.pth'
 ```
 
-### NCNet-RR
-
 ```
 cd baseline_models
 
@@ -55,11 +50,6 @@ mkdir ncnet_rr
 
 python train_baseline.py --num_steps=3000 --seq_size=1000 --batch_size=100 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --epochs=50 --patience=40 --task='TF_bindings' --model='NCNet_RR' --save='ncnet_rr1' --save_dir=ncnet_rr --model_path='ncnet_rr/ncnet_rr1.pth'
 ```
-
-
-
-
-### DanQ
 
 ```
 cd baseline_models
