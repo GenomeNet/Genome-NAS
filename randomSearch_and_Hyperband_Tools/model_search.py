@@ -17,7 +17,7 @@ from generalNAS_tools import genotypes
 
 from torch.autograd import Variable
 from collections import namedtuple
-from randomSearch_and_Hyperband_Tools.model2 import DARTSCell, RNNModel
+from randomSearch_and_Hyperband_Tools.model import DARTSCell, RNNModel
 
 import numpy as np
 
