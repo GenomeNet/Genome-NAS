@@ -24,9 +24,7 @@ import torch.backends.cudnn as cudnn
 import copy
 import gc
 import generalNAS_tools.genotypes
-# import randomSearch_and_Hyperband_Tools.model_search as one_shot_model
-import randomSearch_and_Hyperband_Tools.model_search2 as one_shot_model
-# import model_search as one_shot_model
+import randomSearch_and_Hyperband_Tools.model_search as one_shot_model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 from generalNAS_tools.utils import repackage_hidden, create_exp_dir, save_checkpoint
