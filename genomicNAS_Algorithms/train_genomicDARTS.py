@@ -386,11 +386,11 @@ def main():
     all_labels_valid.append(labels)
     all_predictions_valid.append(predictions)
     
-    labels_valid_file = 'labels_valid-{}'.format(args.save)
-    np.save(os.path.join(args.save_dir, labels_valid_file), all_labels_valid)
+    # labels_valid_file = 'labels_valid-{}'.format(args.save)
+    # np.save(os.path.join(args.save_dir, labels_valid_file), all_labels_valid)
 
-    predictions_valid_file = 'predictions_valid-{}'.format(args.save)
-    np.save(os.path.join(args.save_dir, predictions_valid_file), all_predictions_valid)
+    # predictions_valid_file = 'predictions_valid-{}'.format(args.save)
+    # np.save(os.path.join(args.save_dir, predictions_valid_file), all_predictions_valid)
 
     
     genotype_file = 'darts_geno-{}'.format(args.save)
