@@ -139,6 +139,10 @@ python train_genomicDEP_DARTS.py --num_steps=2000 --seq_size=1000 --batch_size=6
 ```
 mkdir trained_results
 
+cd trained_results 
+
+mkdir bonas_1
+
 cd genomicNAS_Algorithms
 
 mkdir bonas_search
