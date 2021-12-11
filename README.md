@@ -123,7 +123,6 @@ mkdir cwp_search
 python train_genomicCWP_DARTS.py --num_steps=2000 --seq_size=1000 --batch_size=64 --train_directory='/home/ascheppa/deepsea/train.mat' --valid_directory='/home/ascheppa/deepsea/valid.mat' --test_directory='/home/ascheppa/deepsea/test.mat' --report_freq=1000 --dropouth=0.05 --dropoutx=0.1 --rhn_lr=8 --one_clip=True --clip=0.25 --validation=True --report_validation=1 --task='TF_bindings' --save='cwp_1' --save_dir=cwp_search
 ```
 
-
 ### genomeDEP-DARTS
 
 ```
@@ -136,7 +135,10 @@ python train_genomicDEP_DARTS.py --num_steps=2000 --seq_size=1000 --batch_size=6
 
 ### genomeBONAS
 
+
 ```
+mkdir trained_results
+
 cd genomicNAS_Algorithms
 
 mkdir bonas_search
