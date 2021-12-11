@@ -361,8 +361,8 @@ class RNNModel(nn.Module):
         else:
             # run search
             assert genotype is None
-            from randomSearch_and_Hyperband_Tools import model_search2
-            cell_cls = model_search2.DARTSCellSearch
+            from randomSearch_and_Hyperband_Tools import model_search
+            cell_cls = model_search.DARTSCellSearch
             self.rnns = [cell_cls(ninp, nhid, dropouth, dropoutx)]
         
         
