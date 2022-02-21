@@ -155,7 +155,7 @@ def main():
     #_, valid_data, num_classes = dp.data_preprocessing(train_directory = args.train_directory, valid_directory = args.valid_directory, num_files=args.num_files,
     #        seq_size = args.seq_len, batch_size=args.batch_size, next_character=args.next_character_prediction)
     
-    if args.task == ("next_character_prediction" or "sequence_to_sequence"):
+    if args.task == "next_character_prediction" or args.task == "sequence_to_sequence":
         
         import generalNAS_tools.data_preprocessing_new as dp
 
