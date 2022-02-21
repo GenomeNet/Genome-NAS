@@ -188,7 +188,7 @@ def main():
       
     logging.info("args = %s", args)
 
-    if args.task == ("next_character_prediction" or "sequence_to_sequence"):
+    if args.task == "next_character_prediction" or args.task == "sequence_to_sequence":
         
         import generalNAS_tools.data_preprocessing_new as dp
 
